@@ -1,35 +1,43 @@
-import os
-
-import dj_database_url
-from django.core.exceptions import ImproperlyConfigured
+# config/settings/production.py
 
 from .base import *
+import os
+from dotenv import load_dotenv
+import dj_database_url
+
+# 載入 .env 檔案 (如果存在)
+load_dotenv()
 
 DEBUG = False
 
-if not SECRET_KEY:
-    raise ImproperlyConfigured("SECRET_KEY must be set in production environment.")
+# 從環境變數讀取允許的主機
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
-_allowed_hosts = os.getenv("ALLOWED_HOSTS", "")
-if _allowed_hosts:
-    ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts.split(",") if host.strip()]
-else:
-    ALLOWED_HOSTS = ["*"]
-
-postgres_connection_string = os.getenv("POSTGRES_CONNECTION_STRING") or os.getenv(
-    "DATABASE_URL"
-)
+# 資料庫設定
+# Zeabur 會自動注入 POSTGRES_CONNECTION_STRING
+postgres_connection_string = os.getenv('POSTGRES_CONNECTION_STRING')
 
 if postgres_connection_string:
+    # 在 Zeabur 上使用 PostgreSQL
     DATABASES = {
-        "default": dj_database_url.parse(
+        'default': dj_database_url.parse(
             postgres_connection_string,
-            conn_max_age=int(os.getenv("DB_CONN_MAX_AGE", "600")),
-            ssl_require=os.getenv("DB_SSL_REQUIRE", "1") == "1",
+            conn_max_age=600  # 連線池:連線最多保持 600 秒
         )
     }
+else:
+    # 本地開發使用 SQLite (fallback)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
-SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "1") == "1"
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# 生產環境安全設定
+SECURE_SSL_REDIRECT = True  # 強制使用 HTTPS
+SESSION_COOKIE_SECURE = True  # Cookie 只能透過 HTTPS 傳輸
+CSRF_COOKIE_SECURE = True  # CSRF Cookie 只能透過 HTTPS 傳輸
+
+# 信任 Zeabur 的代理伺服器
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
