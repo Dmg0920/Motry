@@ -13,6 +13,10 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
+
+# 建立本地環境變數（複製後請依需求調整值）
+cp .env.example .env
+python -c "from django.core.management.utils import get_random_secret_key as g; print(g())"
 ```
 
 若要離開虛擬環境：
@@ -77,9 +81,10 @@ python manage.py sync_carquery --timeout 60 --retries 5
 - 透過 Admin 建立更多 `Vehicle` 與 `Tag` 後，即可在前台測試貼文、留言、按讚
 
 ## 7) 專案結構（關鍵）
-- `config/` 專案設定（`settings.py`, `urls.py`, `wsgi.py`, `asgi.py`）
-- `motry/` 應用（`models.py`, `views.py`, `forms.py`, `urls.py`, `admin.py`）
-- `templates/`（`base.html`, `home.html`, `search_results.html`, `vehicle_detail.html`, `post_form.html`）
+- `config/settings/`：拆分設定（`base.py`, `development.py`, `production.py`）
+- `apps/core/`：全域頁面元件（`CoreConfig`、`base.html`、首頁視圖與靜態檔）
+- `motry/`：主功能應用（`models.py`, `views.py`, `forms.py`, `urls.py`, `admin.py`，含 `static/motry/` 前端資源）
+- `templates/`：共用模板（其餘頁面如 `search_results.html`, `vehicle_detail.html`, `post_form.html` 等）
 - `manage.py` 啟動指令
 - `requirements.txt` 依賴（Django 4.2 LTS）
 

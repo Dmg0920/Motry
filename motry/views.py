@@ -1,0 +1,408 @@
+from django import forms
+from django.contrib import messages
+from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm
+from django.db.models import Avg, Count, Q, Prefetch
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.shortcuts import get_object_or_404, redirect, render
+from django.core.paginator import Paginator
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.urls import reverse
+
+from .forms import (
+	PostCreateForm,
+	CommentCreateForm,
+	VehicleCreateForm,
+	UserVehicleForm,
+	RatingForm,
+	BRANDS_BY_TYPE,
+)
+from .models import Vehicle, VehicleImage, Post, PostImage, Comment, Tag, PostTag, Like, UserVehicle, Rating
+
+
+def search(request: HttpRequest) -> HttpResponse:
+	query = request.GET.get("query", "").strip()
+	vtype = request.GET.get("type", "").strip()
+	brand = request.GET.get("brand", "").strip()
+	displacement_min = request.GET.get("displacement_min", "").strip()
+	displacement_max = request.GET.get("displacement_max", "").strip()
+	hp_min = request.GET.get("hp_min", "").strip()
+	hp_max = request.GET.get("hp_max", "").strip()
+	cylinders = request.GET.get("cylinders", "").strip()
+
+	qs = Vehicle.objects.all()
+	if query:
+		qs = qs.filter(Q(brand__icontains=query) | Q(model__icontains=query))
+	if vtype:
+		qs = qs.filter(type__iexact=vtype)
+	if brand:
+		qs = qs.filter(brand__icontains=brand)
+	if displacement_min:
+		try:
+			qs = qs.filter(displacement_cc__gte=int(displacement_min))
+		except ValueError:
+			pass
+	if displacement_max:
+		try:
+			qs = qs.filter(displacement_cc__lte=int(displacement_max))
+		except ValueError:
+			pass
+	if hp_min:
+		try:
+			qs = qs.filter(horsepower_ps__gte=int(hp_min))
+		except ValueError:
+			pass
+	if hp_max:
+		try:
+			qs = qs.filter(horsepower_ps__lte=int(hp_max))
+		except ValueError:
+			pass
+	if cylinders:
+		try:
+			cyl_values = [int(c.strip()) for c in cylinders.split(",") if c.strip()]
+			if cyl_values:
+				qs = qs.filter(cylinders__in=cyl_values)
+		except ValueError:
+			pass
+
+	qs = qs.prefetch_related("images").order_by("brand", "model")
+	# 分頁設定
+	page_number = request.GET.get("page") or 1
+	paginator = Paginator(qs, 20)
+	page_obj = paginator.get_page(page_number)
+
+	context = {
+		"vehicles": page_obj.object_list,
+		"page_obj": page_obj,
+		"query": query,
+		"type": vtype,
+		"brand": brand,
+		"displacement_min": displacement_min,
+		"displacement_max": displacement_max,
+		"hp_min": hp_min,
+		"hp_max": hp_max,
+		"cylinders": cylinders,
+	}
+	return render(request, "search_results.html", context)
+
+
+def vehicle_detail(request: HttpRequest, id: int) -> HttpResponse:
+	vehicle = get_object_or_404(
+		Vehicle.objects.annotate(
+			avg_rating=Avg("ratings__score"),
+			rating_count=Count("ratings"),
+		).prefetch_related(
+			"images",
+			Prefetch(
+				"posts",
+				queryset=Post.objects.select_related("vehicle", "user")
+				.prefetch_related("images", "comments", "post_tags__tag")
+				.annotate(num_likes=Count("likes"), num_comments=Count("comments"))
+				.order_by("-created_at"),
+			),
+		),
+		pk=id,
+	)
+
+	post_form = PostCreateForm(initial={"vehicle_id": vehicle.id}) if request.user.is_authenticated else None
+	comment_form = CommentCreateForm() if request.user.is_authenticated else None
+	user_rating = None
+	rating_form = None
+	if request.user.is_authenticated:
+		user_rating = Rating.objects.filter(vehicle=vehicle, user=request.user).first()
+		initial_score = str(user_rating.score) if user_rating else ""
+		rating_form = RatingForm(initial={"score": initial_score})
+
+	return render(
+		request,
+		"vehicle_detail.html",
+		{
+			"vehicle": vehicle,
+			"post_form": post_form,
+			"comment_form": comment_form,
+			"user_rating": user_rating,
+			"rating_form": rating_form,
+		},
+	)
+
+
+@login_required
+def vehicle_create(request: HttpRequest) -> HttpResponse:
+	selected_type = request.POST.get("type") or request.GET.get("type") or None
+	if request.method == "POST" and request.POST.get("refresh") == "1":
+		# 僅切換類型，重繪表單，不觸發驗證與儲存
+		form = VehicleCreateForm(request.POST, selected_type=selected_type)
+		return render(request, "vehicle_form.html", {"form": form})
+
+	if request.method == "POST":
+		form = VehicleCreateForm(request.POST, selected_type=selected_type)
+		if form.is_valid():
+			vehicle = form.save()
+			messages.success(request, "車款已建立！")
+			return redirect("vehicle_detail", id=vehicle.id)
+	else:
+		form = VehicleCreateForm(selected_type=selected_type)
+	return render(request, "vehicle_form.html", {"form": form})
+
+
+@login_required
+def post_create(request: HttpRequest) -> HttpResponse:
+	user = request.user
+	user_vehicles = list(user.user_vehicles.select_related("vehicle").order_by("vehicle__brand", "vehicle__model"))
+
+	if request.method != "POST":
+		vehicle_id = request.GET.get("vehicle")
+		selected_user_vehicle = None
+		user_vehicle_param = request.GET.get("user_vehicle")
+
+		if user_vehicle_param:
+			selected_user_vehicle = next((uv for uv in user_vehicles if str(uv.id) == user_vehicle_param), None)
+			if selected_user_vehicle:
+				vehicle_id = selected_user_vehicle.vehicle_id
+
+		initial = {}
+		if vehicle_id:
+			initial["vehicle_id"] = vehicle_id
+		if selected_user_vehicle:
+			initial["user_vehicle_id"] = selected_user_vehicle.id
+
+		form = PostCreateForm(initial=initial)
+		_prepare_user_vehicle_field(form, user_vehicles)
+		selected_vehicle = Vehicle.objects.filter(pk=vehicle_id).first() if vehicle_id else None
+		return render(
+			request,
+			"post_form.html",
+			{
+				"form": form,
+				"user_vehicles": user_vehicles,
+				"selected_user_vehicle": selected_user_vehicle,
+				"selected_vehicle": selected_vehicle,
+			},
+		)
+
+	post_data = request.POST.copy()
+	user_vehicle_id = post_data.get("user_vehicle_id")
+	selected_user_vehicle = None
+	if user_vehicle_id:
+		selected_user_vehicle = next((uv for uv in user_vehicles if str(uv.id) == user_vehicle_id), None)
+		if selected_user_vehicle and not post_data.get("vehicle_id"):
+			post_data["vehicle_id"] = str(selected_user_vehicle.vehicle_id)
+
+	form = PostCreateForm(post_data, request.FILES)
+	_prepare_user_vehicle_field(form, user_vehicles)
+
+	if not form.is_valid():
+		selected_vehicle = None
+		vehicle_id = form.data.get("vehicle_id")
+		if vehicle_id:
+			selected_vehicle = Vehicle.objects.filter(pk=vehicle_id).first()
+		return render(
+			request,
+			"post_form.html",
+			{
+				"form": form,
+				"user_vehicles": user_vehicles,
+				"selected_user_vehicle": selected_user_vehicle,
+				"selected_vehicle": selected_vehicle,
+			},
+		)
+
+	vehicle = get_object_or_404(Vehicle, pk=form.cleaned_data["vehicle_id"])
+	user_vehicle = None
+	user_vehicle_clean = form.cleaned_data.get("user_vehicle_id")
+	if user_vehicle_clean:
+		user_vehicle = next((uv for uv in user_vehicles if uv.id == user_vehicle_clean), None)
+
+	post = Post.objects.create(
+		vehicle=vehicle,
+		user=user,
+		user_vehicle=user_vehicle,
+		body_text=form.cleaned_data["body_text"],
+	)
+
+	for tag in form.cleaned_data["tags"]:
+		PostTag.objects.create(post=post, tag=tag)
+
+	for img_file in form.images():
+		PostImage.objects.create(post=post, image=img_file)
+
+	messages.success(request, "貼文已建立！")
+	return redirect("vehicle_detail", id=vehicle.id)
+
+
+@login_required
+def comment_create(request: HttpRequest) -> HttpResponse:
+	if request.method != "POST":
+		return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
+
+	form = CommentCreateForm(request.POST, request.FILES)
+	if not form.is_valid():
+		messages.error(request, "留言失敗")
+		return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
+
+	comment: Comment = form.save(commit=False)
+	comment.user = request.user
+	# 如果上傳了圖片檔案，優先使用檔案
+	if form.cleaned_data.get("image"):
+		comment.image = form.cleaned_data["image"]
+		comment.image_url = ""  # 清除URL，使用檔案
+	comment.save()
+	messages.success(request, "留言已送出！")
+	return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
+
+
+@login_required
+def post_delete(request: HttpRequest, post_id: int) -> HttpResponse:
+	post = get_object_or_404(Post.objects.select_related("vehicle", "user"), pk=post_id)
+	fallback = reverse("vehicle_detail", args=[post.vehicle_id])
+	redirect_candidate = request.POST.get("next") or request.META.get("HTTP_REFERER")
+	redirect_url = _safe_redirect(request, redirect_candidate, fallback)
+
+	if request.method != "POST":
+		return HttpResponseRedirect(redirect_url)
+
+	if not (post.user_id == request.user.id or request.user.is_staff):
+		messages.error(request, "沒有權限刪除這篇貼文。")
+		return HttpResponseRedirect(redirect_url)
+
+	post.delete()
+	messages.success(request, "貼文已刪除。")
+	return HttpResponseRedirect(redirect_url)
+
+
+@login_required
+def comment_delete(request: HttpRequest, comment_id: int) -> HttpResponse:
+	comment = get_object_or_404(Comment.objects.select_related("post", "user"), pk=comment_id)
+	fallback = reverse("vehicle_detail", args=[comment.post.vehicle_id])
+	redirect_candidate = request.POST.get("next") or request.META.get("HTTP_REFERER")
+	redirect_url = _safe_redirect(request, redirect_candidate, fallback)
+
+	if request.method != "POST":
+		return HttpResponseRedirect(redirect_url)
+
+	if not (comment.user_id == request.user.id or request.user.is_staff):
+		messages.error(request, "沒有權限刪除這則留言。")
+		return HttpResponseRedirect(redirect_url)
+
+	comment.delete()
+	messages.success(request, "留言已刪除。")
+	return HttpResponseRedirect(redirect_url)
+
+
+@login_required
+def rate_vehicle(request: HttpRequest, id: int) -> HttpResponse:
+	vehicle = get_object_or_404(Vehicle, pk=id)
+	fallback = reverse("vehicle_detail", args=[vehicle.id])
+	redirect_candidate = request.POST.get("next") or request.META.get("HTTP_REFERER")
+	redirect_url = _safe_redirect(request, redirect_candidate, fallback)
+
+	if request.method != "POST":
+		return HttpResponseRedirect(redirect_url)
+
+	form = RatingForm(request.POST)
+	if not form.is_valid():
+		for error in form.errors.get("score", []):
+			messages.error(request, error)
+		return HttpResponseRedirect(redirect_url)
+
+	score = int(form.cleaned_data["score"])
+	rating, created = Rating.objects.update_or_create(
+		vehicle=vehicle,
+		user=request.user,
+		defaults={"score": score},
+	)
+	messages.success(request, "評分已更新！" if not created else "感謝你的評分！")
+	return HttpResponseRedirect(redirect_url)
+
+
+@login_required
+def like_toggle(request: HttpRequest, post_id: int) -> HttpResponse:
+	post = get_object_or_404(Post, pk=post_id)
+	existing = Like.objects.filter(post=post, user=request.user).first()
+	if existing:
+		existing.delete()
+		messages.info(request, "已取消按讚")
+	else:
+		Like.objects.create(post=post, user=request.user)
+		messages.success(request, "已按讚！")
+	return HttpResponseRedirect(request.META.get("HTTP_REFERER", reverse("vehicle_detail", args=[post.vehicle_id])))
+
+
+def register(request: HttpRequest) -> HttpResponse:
+	if request.user.is_authenticated:
+		return redirect("home")
+
+	if request.method == "POST":
+		form = UserCreationForm(request.POST)
+		if form.is_valid():
+			user = form.save()
+			login(request, user)
+			messages.success(request, "註冊成功，歡迎加入 Motry！")
+			return redirect("home")
+	else:
+		form = UserCreationForm()
+
+	return render(request, "auth/register.html", {"form": form})
+
+
+@login_required
+def user_garage(request: HttpRequest) -> HttpResponse:
+	user = request.user
+	user_vehicles = user.user_vehicles.select_related("vehicle").prefetch_related("vehicle__images").order_by("-created_at")
+	form = UserVehicleForm(user, request.POST or None, request.FILES or None)
+	can_add = form.fields["vehicle"].queryset.exists()
+	if request.method == "POST" and form.is_valid():
+		garage = form.save(commit=False)
+		garage.user = user
+		# 如果上傳了圖片檔案，優先使用檔案
+		if form.cleaned_data.get("image"):
+			garage.image = form.cleaned_data["image"]
+			garage.image_url = ""  # 清除URL，使用檔案
+		garage.save()
+		messages.success(request, "已將車輛加入我的車庫！")
+		return redirect("user_garage")
+
+	return render(
+		request,
+		"garage.html",
+		{
+			"form": form,
+			"user_vehicles": user_vehicles,
+			"can_add": can_add,
+		},
+	)
+
+
+@login_required
+def user_vehicle_delete(request: HttpRequest, user_vehicle_id: int) -> HttpResponse:
+	user_vehicle = get_object_or_404(UserVehicle.objects.select_related("vehicle"), pk=user_vehicle_id)
+	
+	if user_vehicle.user_id != request.user.id:
+		messages.error(request, "沒有權限刪除此車輛。")
+		return redirect("user_garage")
+
+	if request.method == "POST":
+		vehicle_name = str(user_vehicle.vehicle)
+		user_vehicle.delete()
+		messages.success(request, f"已從車庫中移除 {vehicle_name}。")
+		return redirect("user_garage")
+
+	return redirect("user_garage")
+
+
+def _prepare_user_vehicle_field(form: PostCreateForm, user_vehicles: list[UserVehicle]) -> None:
+	choices = [("", "選擇我的車（可選）")] + [
+		(uv.id, f"{uv.alias or (uv.vehicle.brand + ' ' + uv.vehicle.model)}") for uv in user_vehicles
+	]
+	widget = forms.Select(attrs={"class": "form-select"})
+	widget.choices = choices
+	form.fields["user_vehicle_id"].widget = widget
+	form.fields["user_vehicle_id"].choices = choices
+	form.fields["user_vehicle_id"].required = False
+
+
+def _safe_redirect(request: HttpRequest, target: str | None, fallback: str) -> str:
+	if target and url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+		return target
+	return fallback

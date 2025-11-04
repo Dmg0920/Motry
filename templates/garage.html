@@ -1,0 +1,106 @@
+{% extends "core/base.html" %}
+{% load motry_extras %}
+{% block content %}
+<div class="page-container page-stack">
+	<section class="card card--hero form-card">
+		<span class="badge badge--ghost">My Garage</span>
+		<h2 class="hero-title">我的車庫</h2>
+		<p class="hero-subtitle">
+			收藏你的座駕、寫下備註，發表心得時就能直接套用。
+		</p>
+		<form method="post" enctype="multipart/form-data" class="form-grid">
+			{% csrf_token %}
+			{{ form.non_field_errors }}
+			<div class="form-row">
+				<label for="id_vehicle">選擇車款</label>
+				{% if can_add %}
+					{{ form.vehicle }}
+					{{ form.vehicle.errors }}
+				{% else %}
+					<p class="empty-state empty-state--compact">已無可加入的車款，或尚未同步車輛資料。</p>
+				{% endif %}
+			</div>
+			<div class="form-row">
+				<label for="id_alias">車輛暱稱 <span class="label-optional">（選填）</span></label>
+				{{ form.alias }}
+				{{ form.alias.errors }}
+			</div>
+			<div class="form-row">
+				<label for="id_notes">備註 <span class="label-optional">（選填）</span></label>
+				{{ form.notes }}
+				{{ form.notes.errors }}
+			</div>
+			<div class="form-row">
+				<label for="id_image">上傳封面圖 <span class="label-optional">（選填）</span></label>
+				{{ form.image }}
+				{{ form.image.errors }}
+				<small class="help-text">支援 JPG、PNG、WebP 格式，建議不超過 5MB</small>
+			</div>
+			<div class="form-row">
+				<label for="id_image_url">或輸入圖片網址 <span class="label-optional">（選填）</span></label>
+				{{ form.image_url }}
+				{{ form.image_url.errors }}
+			</div>
+			<div class="form-actions">
+				<button type="submit" class="button" {% if not can_add %}disabled{% endif %}>加入我的車庫</button>
+			</div>
+		</form>
+	</section>
+
+	<section class="card card--frost">
+		<div class="section-heading">
+			<div>
+				<h2>我的車輛</h2>
+				<p class="hero-subtitle hero-subtitle--compact">管理你的收藏，點擊查看車款或發表心得。</p>
+			</div>
+			{% if user_vehicles %}
+				<span class="badge">{{ user_vehicles|length }} 台車</span>
+			{% endif %}
+		</div>
+		{% if user_vehicles %}
+			<div class="vehicle-grid">
+				{% for garage in user_vehicles %}
+					<div class="vehicle-grid__card garage-card">
+						<div class="vehicle-grid__media">
+							{% if garage.image %}
+								<img src="{{ garage.image.url }}" alt="{{ garage.alias|default:garage.vehicle }}" data-fallback="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}" />
+							{% elif garage.image_url and not garage.image_url|is_default_image %}
+								<img src="{{ garage.image_url }}" alt="{{ garage.alias|default:garage.vehicle }}" data-fallback="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}" />
+							{% elif garage.vehicle.images.first and not garage.vehicle.images.first.image_url|is_default_image %}
+								<img src="{{ garage.vehicle.images.first.image_url }}" alt="{{ garage.vehicle }}" data-fallback="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}" />
+							{% elif garage.vehicle.cover_url and not garage.vehicle.cover_url|is_default_image %}
+								<img src="{{ garage.vehicle.cover_url }}" alt="{{ garage.vehicle }}" data-fallback="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}" />
+							{% else %}
+								<img src="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}" alt="{{ garage.vehicle }}" />
+							{% endif %}
+						</div>
+						<div class="vehicle-grid__body">
+							{% if garage.alias %}
+								<strong>{{ garage.alias }}</strong>
+								<small>{{ garage.vehicle.brand }} {{ garage.vehicle.model }}</small>
+							{% else %}
+								<strong>{{ garage.vehicle.brand }} {{ garage.vehicle.model }}</strong>
+							{% endif %}
+							{% if garage.notes %}
+								<p class="garage-notes">{{ garage.notes|truncatewords:15 }}</p>
+							{% endif %}
+						</div>
+						<div class="garage-card__actions">
+							<a href="/vehicle/{{ garage.vehicle_id }}/" class="button button-ghost">查看車款</a>
+							<a href="{% url 'post_create' %}?user_vehicle={{ garage.id }}" class="button">發表心得</a>
+							<form action="{% url 'user_vehicle_delete' garage.id %}" method="post" class="garage-delete-form">
+								{% csrf_token %}
+								<button type="submit" class="button button-danger" onclick="return confirm('確定要從車庫中移除這台車嗎？');">刪除</button>
+							</form>
+						</div>
+					</div>
+				{% endfor %}
+			</div>
+		{% else %}
+			<div class="empty-state-container">
+				<p class="empty-state">你還沒有收藏任何車，從上方表單加入一台吧！</p>
+			</div>
+		{% endif %}
+	</section>
+</div>
+{% endblock %}

@@ -1,0 +1,311 @@
+{% extends "core/base.html" %}
+{% load motry_extras %}
+{% block content %}
+<div class="page-container page-stack">
+	<section class="layout layout--split layout--align-top">
+		<div class="card vehicle-visual">
+			<div class="vehicle-hero__media">
+				{% if vehicle.images.first and not vehicle.images.first.image_url|is_default_image %}
+					<img
+						src="{{ vehicle.images.first.image_url }}"
+						alt="{{ vehicle.brand }} {{ vehicle.model }}"
+						data-fallback="{% vehicle_fallback_image vehicle.brand vehicle.model %}"
+					/>
+				{% elif vehicle.cover_url and not vehicle.cover_url|is_default_image %}
+					<img
+						src="{{ vehicle.cover_url }}"
+						alt="{{ vehicle.brand }} {{ vehicle.model }}"
+						data-fallback="{% vehicle_fallback_image vehicle.brand vehicle.model %}"
+					/>
+				{% else %}
+					<img
+						src="{% vehicle_fallback_image vehicle.brand vehicle.model %}"
+						alt="{{ vehicle.brand }} {{ vehicle.model }}"
+					/>
+				{% endif %}
+			</div>
+			{% if user.is_authenticated %}
+				<div class="hero-actions">
+					<a href="{% url 'post_create' %}?vehicle={{ vehicle.id }}" class="button">發表心得</a>
+					<a href="{% url 'user_garage' %}" class="button button-ghost">管理我的車庫</a>
+				</div>
+			{% else %}
+				<p class="hero-subtitle hero-subtitle--compact">登入後即可收藏這台車並分享你的使用心得。</p>
+				<div class="hero-actions">
+					<a href="{% url 'login' %}?next=/vehicle/{{ vehicle.id }}/" class="button">登入分享</a>
+					<a href="{% url 'register' %}" class="button button-ghost">加入社群</a>
+				</div>
+			{% endif %}
+		</div>
+
+		<div class="card vehicle-summary stack-sm">
+			<span class="badge badge--ghost">Vehicle Overview</span>
+			<h1 class="hero-title">{{ vehicle.brand }} {{ vehicle.model }}</h1>
+			<p class="hero-subtitle">
+				{% if vehicle.type == 'car' %}汽車{% elif vehicle.type == 'bike' %}機車{% else %}{{ vehicle.type }}{% endif %}
+				{% if vehicle.years_from or vehicle.years_to %}
+					｜年份 {{ vehicle.years_from|default:"?" }}{% if vehicle.years_to %} - {{ vehicle.years_to }}{% endif %}
+				{% endif %}
+			</p>
+			<ul class="spec-pill-list">
+				{% if vehicle.displacement_cc %}
+					<li class="spec-pill">{{ vehicle.displacement_cc }} cc</li>
+				{% endif %}
+				{% if vehicle.cylinders %}
+					<li class="spec-pill">{{ vehicle.cylinders }} 缸</li>
+				{% endif %}
+				{% if vehicle.horsepower_ps %}
+					<li class="spec-pill">{{ vehicle.horsepower_ps }} PS</li>
+				{% endif %}
+				{% if vehicle.generation %}
+					<li class="spec-pill">{{ vehicle.generation }}</li>
+				{% endif %}
+			</ul>
+			<div class="rating-block">
+				<div class="rating-summary">
+					<strong class="rating-summary__score">
+						{% if vehicle.rating_count %}
+							{{ vehicle.avg_rating|floatformat:1 }}
+						{% else %}
+							–
+						{% endif %}
+					</strong>
+					<span class="rating-summary__label">平均評分（共 {{ vehicle.rating_count|default:0 }} 則）</span>
+				</div>
+				{% if rating_form %}
+					<form action="{% url 'rate_vehicle' vehicle.id %}" method="post" class="rating-form inline-form inline-form--compact">
+						{% csrf_token %}
+						{{ rating_form.score }}
+						<input type="hidden" name="next" value="{{ request.get_full_path }}" />
+						<button type="submit" class="button">
+							{% if user_rating %}更新評分{% else %}送出評分{% endif %}
+						</button>
+					</form>
+				{% elif not user.is_authenticated %}
+					<p class="rating-login-hint">登入後即可為這台車評分。</p>
+				{% endif %}
+			</div>
+			{% if vehicle.intro_md %}
+				<div class="vehicle-intro">
+					<h3 style="margin-top: 0; margin-bottom: 12px;">車輛簡介</h3>
+					<div style="white-space: pre-wrap; line-height: 1.8;">{{ vehicle.intro_md }}</div>
+				</div>
+			{% endif %}
+			<div class="spec-table">
+				<h3 style="margin-top: 0; margin-bottom: 16px;">詳細規格</h3>
+				{% if vehicle.years_from or vehicle.years_to %}
+					<div class="spec-row">
+						<strong>上市年份</strong>
+						<span>{{ vehicle.years_from|default:"-" }}{% if vehicle.years_to %} - {{ vehicle.years_to }}{% endif %}</span>
+					</div>
+				{% endif %}
+				{% if vehicle.generation %}
+					<div class="spec-row">
+						<strong>世代 / 代號</strong>
+						<span>{{ vehicle.generation }}</span>
+					</div>
+				{% endif %}
+				<div class="spec-row">
+					<strong>排氣量</strong>
+					<span>{% if vehicle.displacement_cc %}{{ vehicle.displacement_cc }} cc{% else %}-{% endif %}</span>
+				</div>
+				<div class="spec-row">
+					<strong>缸數</strong>
+					<span>{% if vehicle.cylinders %}{{ vehicle.cylinders }} 缸{% else %}-{% endif %}</span>
+				</div>
+				<div class="spec-row">
+					<strong>馬力</strong>
+					<span>{% if vehicle.horsepower_ps %}{{ vehicle.horsepower_ps }} PS{% else %}-{% endif %}</span>
+				</div>
+				{% if vehicle.msrp_new %}
+					<div class="spec-row">
+						<strong>新車建議售價</strong>
+						<span>{{ vehicle.msrp_new|floatformat:0 }} 元</span>
+					</div>
+				{% endif %}
+				{% if vehicle.used_price_min or vehicle.used_price_max %}
+					<div class="spec-row">
+						<strong>中古車價格</strong>
+						<span>
+							{% if vehicle.used_price_min %}{{ vehicle.used_price_min|floatformat:0 }}{% else %}?{% endif %}
+							{% if vehicle.used_price_min and vehicle.used_price_max %} - {% endif %}
+							{% if vehicle.used_price_max %}{{ vehicle.used_price_max|floatformat:0 }}{% endif %}
+							{% if vehicle.used_price_min or vehicle.used_price_max %} 元{% endif %}
+						</span>
+					</div>
+				{% endif %}
+				<div class="spec-row">
+					<strong>資料建立時間</strong>
+					<span>{{ vehicle.created_at|date:"Y-m-d" }}</span>
+				</div>
+				{% if vehicle.updated_at %}
+					<div class="spec-row">
+						<strong>最後更新</strong>
+						<span>{{ vehicle.updated_at|date:"Y-m-d" }}</span>
+					</div>
+				{% endif %}
+			</div>
+		</div>
+	</section>
+
+	<section class="card">
+		<div class="section-heading">
+			<div>
+				<h2>官方圖集</h2>
+				<p class="hero-subtitle hero-subtitle--compact">瀏覽外觀與細節照，了解車身質感。</p>
+			</div>
+		</div>
+		{% if vehicle.images.all %}
+			{% if vehicle.images.first.image_url|is_default_image and vehicle.images.all|length == 1 %}
+				<p class="empty-state">尚未上傳官方照片，歡迎補充！</p>
+			{% else %}
+				<div class="gallery-strip">
+					{% for img in vehicle.images.all %}
+						{% if not img.image_url|is_default_image %}
+							<img
+								src="{{ img.image_url }}"
+								alt="{{ vehicle.model }} 圖片 {{ forloop.counter }}"
+								data-fallback="{% vehicle_fallback_image vehicle.brand vehicle.model %}"
+							/>
+						{% endif %}
+					{% endfor %}
+				</div>
+			{% endif %}
+		{% else %}
+			<p class="empty-state">尚未上傳官方照片，歡迎補充！</p>
+		{% endif %}
+	</section>
+
+	<section class="card">
+		<div class="section-heading">
+			<div>
+				<h2>車主心得與討論</h2>
+				<p class="hero-subtitle hero-subtitle--compact">閱讀真實車主心得與留言，掌握使用感受。</p>
+			</div>
+			{% if user.is_authenticated %}
+				<a href="{% url 'post_create' %}?vehicle={{ vehicle.id }}" class="button button-ghost">撰寫心得</a>
+			{% else %}
+				<a href="{% url 'login' %}?next=/vehicle/{{ vehicle.id }}/" class="button button-ghost">登入後分享</a>
+			{% endif %}
+		</div>
+
+		{% if vehicle.posts.all %}
+			<div class="post-stack">
+				{% for post in vehicle.posts.all %}
+					<article class="post-card">
+						<div class="post-card__body">
+							{{ post.body_text|linebreaksbr }}
+						</div>
+						{% if post.images.all %}
+							<div class="post-card__gallery">
+								{% for pi in post.images.all %}
+									{% if pi.image %}
+										<img
+											src="{{ pi.image.url }}"
+											alt="貼文圖片 {{ forloop.counter }}"
+											data-fallback="{% vehicle_fallback_image vehicle.brand vehicle.model %}"
+										/>
+									{% elif pi.image_url and not pi.image_url|is_default_image %}
+										<img
+											src="{{ pi.image_url }}"
+											alt="貼文圖片 {{ forloop.counter }}"
+											data-fallback="{% vehicle_fallback_image vehicle.brand vehicle.model %}"
+										/>
+									{% endif %}
+								{% endfor %}
+							</div>
+						{% endif %}
+						{% if post.post_tags.all %}
+							<div class="post-card__tags">
+								{% for pt in post.post_tags.all %}
+									<span class="post-card__tag">#{{ pt.tag.name }}</span>
+								{% endfor %}
+							</div>
+						{% endif %}
+						<div class="post-card__meta">
+							<span>由 {{ post.user.username|default:"匿名車友" }} 分享</span>
+							<span>讚：{{ post.num_likes }}</span>
+							<span>留言：{{ post.num_comments }}</span>
+							<span>{{ post.created_at|date:"Y-m-d H:i" }}</span>
+							{% if user.is_authenticated %}
+								<form action="/like/toggle/{{ post.id }}/" method="post" class="inline-form inline-form--compact">
+									{% csrf_token %}
+									<button type="submit" class="button button-ghost">讚 / 取消讚</button>
+								</form>
+								{% if post.user_id == user.id or user.is_staff %}
+									<form action="{% url 'post_delete' post.id %}" method="post" class="inline-form inline-form--compact">
+										{% csrf_token %}
+										<input type="hidden" name="next" value="{{ request.get_full_path }}" />
+										<button type="submit" class="button button-ghost">刪除貼文</button>
+									</form>
+								{% endif %}
+							{% endif %}
+						</div>
+						<section>
+							<h4>留言</h4>
+							{% if post.comments.all %}
+								<div class="comment-list">
+									{% for c in post.comments.all %}
+										<div class="comment-item">
+											<p>{{ c.body_text }}</p>
+											{% if c.image %}
+												<img
+													src="{{ c.image.url }}"
+													alt="留言圖片"
+													class="comment-image"
+													data-fallback="{% vehicle_fallback_image vehicle.brand vehicle.model %}"
+												/>
+											{% elif c.image_url and not c.image_url|is_default_image %}
+												<img
+													src="{{ c.image_url }}"
+													alt="留言圖片"
+													class="comment-image"
+													data-fallback="{% vehicle_fallback_image vehicle.brand vehicle.model %}"
+												/>
+											{% endif %}
+											<small>{{ c.created_at|date:"Y-m-d H:i" }}</small>
+											{% if user.is_authenticated %}
+												{% if c.user_id == user.id or user.is_staff %}
+												<form action="{% url 'comment_delete' c.id %}" method="post" class="inline-form inline-form--compact comment-delete-form">
+													{% csrf_token %}
+													<input type="hidden" name="next" value="{{ request.get_full_path }}" />
+													<button type="submit" class="button button-ghost">刪除留言</button>
+												</form>
+												{% endif %}
+											{% endif %}
+										</div>
+									{% endfor %}
+								</div>
+							{% else %}
+								<p class="empty-state empty-state--compact">還沒有留言。</p>
+							{% endif %}
+
+							{% if user.is_authenticated %}
+								<form action="/comment/new" method="post" enctype="multipart/form-data" class="inline-form">
+									{% csrf_token %}
+									<input type="hidden" name="post" value="{{ post.id }}" />
+									<textarea name="body_text" rows="2" placeholder="留下你的看法..." required></textarea>
+									<input type="file" name="image" accept="image/*" />
+									<small class="help-text">或輸入圖片網址：</small>
+									<input type="url" name="image_url" placeholder="圖片網址（選填）" />
+									<div class="form-actions">
+										<button type="submit" class="button">送出</button>
+									</div>
+								</form>
+							{% endif %}
+						</section>
+					</article>
+				{% endfor %}
+			</div>
+		{% else %}
+			<p class="empty-state">尚無心得，成為第一個分享的人吧！</p>
+		{% endif %}
+	</section>
+</div>
+
+{% if user.is_authenticated %}
+	<a href="/post/new?vehicle={{ vehicle.id }}" class="button fab">＋ 發表心得</a>
+{% else %}
+	<a href="/admin/login/?next=/vehicle/{{ vehicle.id }}/" class="button fab">登入後發表</a>
+{% endif %}
+{% endblock %}

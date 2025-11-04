@@ -1,0 +1,102 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}分享我的座駕 - Motry{% endblock %}
+
+{% block content %}
+<div class="page-container page-stack">
+	<section class="card card--frost form-card">
+		<span class="badge badge--ghost">Share</span>
+		<h2>關於你的車...</h2>
+		<p class="hero-subtitle hero-subtitle--compact">
+			把你的座駕完整記錄下來，和大家分享改裝、維修與故事；投稿後會推薦在首頁車友車庫。
+		</p>
+		<form id="vehicle-form" method="post" class="form-grid">
+			{% csrf_token %}
+			<input type="hidden" name="refresh" id="refresh-flag" value="0" />
+			{{ form.non_field_errors }}
+
+			<div class="fieldset-grid">
+				<div class="form-row">
+					<label for="{{ form.type.id_for_label }}">類型</label>
+					{{ form.type }}
+					{{ form.type.errors }}
+				</div>
+				<div class="form-row">
+					<label for="{{ form.brand.id_for_label }}">品牌</label>
+					{{ form.brand }}
+					{{ form.brand.errors }}
+				</div>
+			</div>
+
+			<div class="fieldset-grid">
+				<div class="form-row">
+					<label for="{{ form.model.id_for_label }}">車型</label>
+					{{ form.model }}
+					{{ form.model.errors }}
+				</div>
+				<div class="form-row">
+					<label for="{{ form.generation.id_for_label }}">年代 / 代號</label>
+					{{ form.generation }}
+					{{ form.generation.errors }}
+				</div>
+			</div>
+
+			<fieldset class="form-row">
+				<legend>規格</legend>
+				<div class="fieldset-grid">
+					<div>
+						<label for="{{ form.years_from.id_for_label }}">上市年</label>
+						{{ form.years_from }}
+						{{ form.years_from.errors }}
+					</div>
+					<div>
+						<label for="{{ form.years_to.id_for_label }}">停產年</label>
+						{{ form.years_to }}
+						{{ form.years_to.errors }}
+					</div>
+					<div>
+						<label for="{{ form.displacement_cc.id_for_label }}">排氣量 (cc)</label>
+						{{ form.displacement_cc }}
+						{{ form.displacement_cc.errors }}
+					</div>
+					<div>
+						<label for="{{ form.cylinders.id_for_label }}">缸數</label>
+						{{ form.cylinders }}
+						{{ form.cylinders.errors }}
+					</div>
+					<div>
+						<label for="{{ form.horsepower_ps.id_for_label }}">馬力 (PS)</label>
+						{{ form.horsepower_ps }}
+						{{ form.horsepower_ps.errors }}
+					</div>
+					<div>
+						<label for="{{ form.msrp_new.id_for_label }}">新車價</label>
+						{{ form.msrp_new }}
+						{{ form.msrp_new.errors }}
+					</div>
+				</div>
+			</fieldset>
+
+			<div class="form-row">
+				<label for="{{ form.cover_url.id_for_label }}">封面圖 URL</label>
+				{{ form.cover_url }}
+				{{ form.cover_url.errors }}
+			</div>
+			<div class="form-row">
+				<label for="{{ form.intro_md.id_for_label }}">簡介（Markdown）</label>
+				{{ form.intro_md }}
+				{{ form.intro_md.errors }}
+			</div>
+
+		<div class="form-actions">
+			<button type="submit">分享我的座駕</button>
+		</div>
+		</form>
+	</section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'motry/js/vehicle_form.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,128 @@
+{% extends "core/base.html" %}
+{% block title %}發表心得 - Motry{% endblock %}
+{% block content %}
+<div class="page-container page-stack">
+	<section class="card card--frost form-card">
+		<span class="badge badge--ghost">Share</span>
+		<h2>發表心得</h2>
+		<p class="hero-subtitle hero-subtitle--compact">分享你的用車經驗，幫助更多人找到理想車款。</p>
+		<form method="post" enctype="multipart/form-data" class="form-grid">
+			{% csrf_token %}
+			{{ form.non_field_errors }}
+			{{ form.vehicle_id }}
+			<div class="form-row">
+				<label for="id_user_vehicle_id">我的車庫</label>
+				{% if user_vehicles %}
+					{{ form.user_vehicle_id }}
+					{{ form.user_vehicle_id.errors }}
+					<small class="help-text">選擇後系統會自動帶入這台車的資料。</small>
+				{% else %}
+					<p class="empty-state empty-state--compact">尚未加入任何車，先去 <a href="{% url 'user_garage' %}">新增我的車</a>。</p>
+				{% endif %}
+			</div>
+			{% if selected_vehicle %}
+				<div class="form-row">
+					<label>目前會使用的車款</label>
+					<p style="margin:0;">{{ selected_vehicle.brand }} {{ selected_vehicle.model }}{% if selected_vehicle.generation %}（{{ selected_vehicle.generation }}）{% endif %}</p>
+				</div>
+			{% endif %}
+			<div class="form-row">
+				<label for="{{ form.body_text.id_for_label }}">內容</label>
+				{{ form.body_text }}
+				{{ form.body_text.errors }}
+			</div>
+			<div class="form-row">
+				<label for="{{ form.tags.id_for_label }}">標籤（1–3）</label>
+				{{ form.tags }}
+				{{ form.tags.errors }}
+			</div>
+			<fieldset class="form-row">
+				<legend>上傳圖片（最多 6 張）</legend>
+				<small class="help-text" style="display: block; margin-bottom: 12px;">支援 JPG、PNG、WebP 格式，每張圖片建議不超過 5MB</small>
+				<div class="fieldset-grid">
+					<div>
+						<label for="id_image_1" style="display: block; margin-bottom: 6px; font-weight: 600;">圖片 1</label>
+						{{ form.image_1 }}
+						{{ form.image_1.errors }}
+					</div>
+					<div>
+						<label for="id_image_2" style="display: block; margin-bottom: 6px; font-weight: 600;">圖片 2</label>
+						{{ form.image_2 }}
+						{{ form.image_2.errors }}
+					</div>
+					<div>
+						<label for="id_image_3" style="display: block; margin-bottom: 6px; font-weight: 600;">圖片 3</label>
+						{{ form.image_3 }}
+						{{ form.image_3.errors }}
+					</div>
+					<div>
+						<label for="id_image_4" style="display: block; margin-bottom: 6px; font-weight: 600;">圖片 4</label>
+						{{ form.image_4 }}
+						{{ form.image_4.errors }}
+					</div>
+					<div>
+						<label for="id_image_5" style="display: block; margin-bottom: 6px; font-weight: 600;">圖片 5</label>
+						{{ form.image_5 }}
+						{{ form.image_5.errors }}
+					</div>
+					<div>
+						<label for="id_image_6" style="display: block; margin-bottom: 6px; font-weight: 600;">圖片 6</label>
+						{{ form.image_6 }}
+						{{ form.image_6.errors }}
+					</div>
+				</div>
+			</fieldset>
+			<div class="form-actions">
+				<button type="submit">發布</button>
+			</div>
+		</form>
+	</section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(window, document) {
+	'use strict';
+
+	window.Motry = window.Motry || {};
+
+	window.Motry.PostForm = (function() {
+		function getGarageSelect() {
+			return document.getElementById('id_user_vehicle_id');
+		}
+
+		function buildNextUrl(selectedValue) {
+			const params = new URLSearchParams(window.location.search);
+			if (selectedValue) {
+				params.set('user_vehicle', selectedValue);
+			} else {
+				params.delete('user_vehicle');
+			}
+			return window.location.pathname + (params.toString() ? ('?' + params.toString()) : '');
+		}
+
+		function handleGarageChange(event) {
+			const nextUrl = buildNextUrl(event.target.value);
+			window.location.assign(nextUrl);
+		}
+
+		function bindEvents() {
+			const select = getGarageSelect();
+			if (!select) return;
+			select.addEventListener('change', handleGarageChange);
+		}
+
+		function init() {
+			bindEvents();
+		}
+
+		return { init };
+	})();
+
+	document.addEventListener('DOMContentLoaded', function() {
+		window.Motry.PostForm.init();
+	});
+})(window, document);
+</script>
+{% endblock %}

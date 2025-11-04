@@ -1,0 +1,148 @@
+{% extends "core/base.html" %}
+{% load motry_extras %}
+{% block content %}
+<div class="page-container">
+	<div class="layout layout--with-sidebar layout--align-top">
+		<aside class="card">
+			<div class="section-heading">
+				<h2>搜尋條件</h2>
+			</div>
+			<form action="/search" method="get" class="search-panel">
+				<div class="search-panel__row">
+					<input type="text" name="query" placeholder="輸入車名或品牌" value="{{ query }}" />
+				</div>
+				<div class="search-panel__row">
+					<select name="type" id="results-search-type" class="form-select form-select--compact">
+						<option value="" {% if not type %}selected{% endif %}>全部類型</option>
+						<option value="car" {% if type == "car" %}selected{% endif %}>汽車</option>
+						<option value="bike" {% if type == "bike" %}selected{% endif %}>機車</option>
+					</select>
+					<select
+						name="brand"
+						class="form-select form-select--compact"
+						data-brand-select
+						data-type-input="#results-search-type"
+						data-selected-value="{{ brand }}"
+					>
+						<option value="">全部品牌</option>
+					</select>
+				</div>
+				<div class="search-panel__row">
+					<span>
+						<label>排氣量 (cc)</label>
+						<input type="number" name="displacement_min" placeholder="最小" value="{{ displacement_min }}" min="0" />
+					</span>
+					<span>
+						<label>&nbsp;</label>
+						<input type="number" name="displacement_max" placeholder="最大" value="{{ displacement_max }}" min="0" />
+					</span>
+				</div>
+				<div class="search-panel__row">
+					<span>
+						<label>馬力 (PS)</label>
+						<input type="number" name="hp_min" placeholder="最小" value="{{ hp_min }}" min="0" />
+					</span>
+					<span>
+						<label>&nbsp;</label>
+						<input type="number" name="hp_max" placeholder="最大" value="{{ hp_max }}" min="0" />
+					</span>
+				</div>
+				<div class="search-panel__row">
+					<span>
+						<label>缸數</label>
+						<input type="text" name="cylinders" placeholder="例：2,4" value="{{ cylinders }}" />
+					</span>
+				</div>
+				<button type="submit" class="button">更新條件</button>
+			</form>
+		</aside>
+
+		<section class="page-stack">
+			<div class="card">
+				<div class="results-summary">
+					<h2>搜尋結果</h2>
+					{% if vehicles %}
+						<span>共 {{ page_obj.paginator.count|default:vehicles|length }} 筆符合條件</span>
+					{% else %}
+						<span>尚未找到符合項目</span>
+					{% endif %}
+				</div>
+				<p class="hero-subtitle hero-subtitle--compact">
+					調整左側條件即可即時更新結果。點擊車款可查看完整規格與車主心得。
+				</p>
+			</div>
+
+			{% if vehicles %}
+				<div class="result-list">
+					{% for v in vehicles %}
+					<a href="/vehicle/{{ v.id }}/" class="vehicle-card">
+						<div class="vehicle-card__media">
+							{% if v.images.first and not v.images.first.image_url|is_default_image %}
+								<img
+									src="{{ v.images.first.image_url }}"
+									alt="{{ v.brand }} {{ v.model }}"
+									data-fallback="{% vehicle_fallback_image v.brand v.model %}"
+								/>
+							{% elif v.cover_url and not v.cover_url|is_default_image %}
+								<img
+									src="{{ v.cover_url }}"
+									alt="{{ v.brand }} {{ v.model }}"
+									data-fallback="{% vehicle_fallback_image v.brand v.model %}"
+								/>
+							{% else %}
+								<img
+									src="{% vehicle_fallback_image v.brand v.model %}"
+									alt="{{ v.brand }} {{ v.model }}"
+								/>
+							{% endif %}
+						</div>
+							<div class="vehicle-card__body">
+								<div>
+									<h3 class="vehicle-card__title">{{ v.brand }} {{ v.model }}</h3>
+									<p class="vehicle-card__meta">
+										{% if v.years_from %}{{ v.years_from }}{% endif %}
+										{% if v.years_to %} - {{ v.years_to }}{% endif %}
+										{% if not v.years_from and not v.years_to %}年份資訊待補{% endif %}
+									</p>
+								</div>
+								<ul class="pill-list">
+									{% if v.displacement_cc %}
+										<li class="pill">{{ v.displacement_cc }} cc</li>
+									{% endif %}
+									{% if v.cylinders %}
+										<li class="pill">{{ v.cylinders }} 缸</li>
+									{% endif %}
+									{% if v.horsepower_ps %}
+										<li class="pill">{{ v.horsepower_ps }} PS</li>
+									{% endif %}
+									{% if v.msrp_new %}
+										<li class="pill">新車約 {{ v.msrp_new|floatformat:0 }} 元</li>
+									{% endif %}
+								</ul>
+							</div>
+						</a>
+					{% endfor %}
+				</div>
+			{% else %}
+				<p class="empty-state">沒有符合的車款，試著放寬條件或搜尋其他關鍵字。</p>
+			{% endif %}
+
+			{% if page_obj and page_obj.has_other_pages %}
+			<nav class="pagination" aria-label="Search results pages" style="margin-top: 16px;">
+				<ul class="pager">
+					{% with params=request.GET.urlencode %}
+						{% if page_obj.has_previous %}
+							<li><a href="?{% if params %}{{ params|cut:'page='|cut:'&page=' }}&{% endif %}page={{ page_obj.previous_page_number }}">上一頁</a></li>
+						{% endif %}
+						<li>第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 頁</li>
+						{% if page_obj.has_next %}
+							<li><a href="?{% if params %}{{ params|cut:'page='|cut:'&page=' }}&{% endif %}page={{ page_obj.next_page_number }}">下一頁</a></li>
+						{% endif %}
+					{% endwith %}
+				</ul>
+			</nav>
+			{% endif %}
+		</section>
+	</div>
+</div>
+{% endblock %}

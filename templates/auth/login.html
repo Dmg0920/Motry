@@ -1,0 +1,29 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="page-container page-stack">
+	<section class="card card--frost form-card" style="max-width:420px;margin:0 auto;">
+		<span class="badge badge--ghost">Welcome back</span>
+		<h2>登入 Motry</h2>
+		<form method="post" class="form-grid">
+			{% csrf_token %}
+			{{ form.non_field_errors }}
+			<div class="form-row">
+				<label for="id_username">帳號</label>
+				{{ form.username }}
+				{{ form.username.errors }}
+			</div>
+			<div class="form-row">
+				<label for="id_password">密碼</label>
+				{{ form.password }}
+				{{ form.password.errors }}
+			</div>
+			<div class="form-actions">
+				<button type="submit">登入</button>
+			</div>
+		</form>
+		<p class="hero-subtitle hero-subtitle--compact" style="text-align:center;">
+			還沒有帳號？<a href="{% url 'register' %}">立即註冊</a>
+		</p>
+	</section>
+</div>
+{% endblock %}

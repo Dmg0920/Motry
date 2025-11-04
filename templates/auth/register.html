@@ -1,0 +1,34 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="page-container page-stack">
+	<section class="card card--frost form-card" style="max-width:480px;margin:0 auto;">
+		<span class="badge badge--ghost">Join us</span>
+		<h2>建立帳號</h2>
+		<form method="post" class="form-grid">
+			{% csrf_token %}
+			{{ form.non_field_errors }}
+			<div class="form-row">
+				<label for="id_username">帳號</label>
+				{{ form.username }}
+				{{ form.username.errors }}
+			</div>
+			<div class="form-row">
+				<label for="id_password1">密碼</label>
+				{{ form.password1 }}
+				{{ form.password1.errors }}
+			</div>
+			<div class="form-row">
+				<label for="id_password2">確認密碼</label>
+				{{ form.password2 }}
+				{{ form.password2.errors }}
+			</div>
+			<div class="form-actions">
+				<button type="submit">註冊</button>
+			</div>
+		</form>
+		<p class="hero-subtitle hero-subtitle--compact" style="text-align:center;">
+			已有帳號？<a href="{% url 'login' %}">前往登入</a>
+		</p>
+	</section>
+</div>
+{% endblock %}
