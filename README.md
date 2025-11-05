@@ -126,6 +126,9 @@ git tag -a v0.1.0 -m "MVP ready"
   - `ALLOWED_HOSTS=motry.zeabur.app`（可多個以逗號分隔）
   - `CSRF_TRUSTED_ORIGINS=https://motry.zeabur.app`（可多個以逗號分隔）
   - `SECRET_KEY=<強隨機字串>`
+  - `SECURE_HSTS_SECONDS=31536000`
+  - `SECURE_HSTS_INCLUDE_SUBDOMAINS=1`
+  - `SECURE_HSTS_PRELOAD=1`
   - `POSTGRES_CONNECTION_STRING`（Zeabur Postgres 外掛會自動注入）
 - 發布（Release）指令：
   - `bash scripts/release.sh`
