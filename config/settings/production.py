@@ -10,8 +10,9 @@ load_dotenv()
 
 DEBUG = False
 
-# 從環境變數讀取允許的主機
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
+# 從環境變數讀取允許的主機（去除空白並過濾空值）
+_allowed_hosts = os.getenv('ALLOWED_HOSTS', '*')
+ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts.split(',') if h.strip()]
 
 # 資料庫設定
 # Zeabur 會自動注入 POSTGRES_CONNECTION_STRING
