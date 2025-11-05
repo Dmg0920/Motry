@@ -13,7 +13,6 @@ venv/
 
 # Django
 /db.sqlite3
-/staticfiles/
 /media/
 
 # IDE
