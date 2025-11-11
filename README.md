@@ -116,5 +116,4 @@ git tag -a v0.1.0 -m "MVP ready"
 
 ## 10) License
 - 僅教學與內部使用示例，請依實際專案補充 License。
-# Motry
  
