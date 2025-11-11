@@ -27,6 +27,7 @@ THIRD_PARTY_APPS = []
 LOCAL_APPS = [
     "apps.core",
     "motry",
+    "apps.accounts",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -126,3 +127,6 @@ LOGGING = {
         },
     },
 }
+
+# 自訂使用者模型
+AUTH_USER_MODEL = 'accounts.User'
