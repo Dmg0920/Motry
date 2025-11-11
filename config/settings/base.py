@@ -181,3 +181,5 @@ SOCIALACCOUNT_PROVIDERS = {
         'FETCH_USERINFO': True,  # 從 Google 取得用戶資訊
     }
 }
+
+AUTH_USER_MODEL = 'accounts.User'
