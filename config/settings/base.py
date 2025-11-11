@@ -155,10 +155,9 @@ AUTHENTICATION_BACKENDS = [
 # config/settings/base.py
 
 # allauth 設定
-ACCOUNT_AUTHENTICATION_METHOD = 'username_email'  # 允許使用 username 或 email 登入
-ACCOUNT_EMAIL_REQUIRED = True  # 註冊時必須填寫 email
+ACCOUNT_LOGIN_METHODS = {"username", "email"}  # 允許使用 username 或 email 登入
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]  # 只要求必填的欄位
 ACCOUNT_EMAIL_VERIFICATION = 'optional'  # email 驗證為選填 (可改為 'mandatory' 強制驗證)
-ACCOUNT_USERNAME_REQUIRED = False  # 社交登入不需要 username，使用 email 即可
 LOGIN_REDIRECT_URL = '/'  # 登入後導向首頁
 LOGOUT_REDIRECT_URL = '/'  # 登出後導向首頁
 

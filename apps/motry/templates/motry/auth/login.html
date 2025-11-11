@@ -1,4 +1,5 @@
 {% extends "core/base.html" %}
+{% load socialaccount %}
 {% block content %}
 <div class="page-container page-stack">
 	<section class="card card--frost form-card" style="max-width:420px;margin:0 auto;">
@@ -21,6 +22,13 @@
 				<button type="submit">登入</button>
 			</div>
 		</form>
+		<div class="stack-sm" style="margin-top:1.5rem;">
+			<p class="divider-text">或使用 Google 登入</p>
+			<a class="button button-ghost button-full" href="{% provider_login_url 'google' process='login' %}">
+				<img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="" width="16" height="16" style="vertical-align:middle;margin-right:8px;" />
+				使用 Google 帳號
+			</a>
+		</div>
 		<p class="hero-subtitle hero-subtitle--compact" style="text-align:center;">
 			還沒有帳號？<a href="{% url 'register' %}">立即註冊</a>
 		</p>
