@@ -331,7 +331,7 @@ def like_toggle(request: HttpRequest, post_id: int) -> HttpResponse:
 
 def register(request: HttpRequest) -> HttpResponse:
 	if request.user.is_authenticated:
-		return redirect("home")
+		return redirect("core:home")
 
 	if request.method == "POST":
 		form = UserCreationForm(request.POST)
@@ -339,7 +339,7 @@ def register(request: HttpRequest) -> HttpResponse:
 			user = form.save()
 			login(request, user)
 			messages.success(request, "註冊成功，歡迎加入 Motry！")
-			return redirect("home")
+			return redirect("core:home")
 	else:
 		form = UserCreationForm()
 
