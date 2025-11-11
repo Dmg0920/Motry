@@ -118,23 +118,3 @@ git tag -a v0.1.0 -m "MVP ready"
 - 僅教學與內部使用示例，請依實際專案補充 License。
 # Motry
  
-## 部署（Zeabur）
-- 服務執行指令：使用環境變數 `ZBPACK_START_COMMAND`
-  - `daphne -b 0.0.0.0 -p 8080 config.asgi:application`
-- 環境變數（最低需求）
-  - `DJANGO_DEBUG=0`
-  - `ALLOWED_HOSTS=motry.zeabur.app`（可多個以逗號分隔）
-  - `CSRF_TRUSTED_ORIGINS=https://motry.zeabur.app`（可多個以逗號分隔）
-  - `SECRET_KEY=<強隨機字串>`
-  - `SECURE_HSTS_SECONDS=31536000`
-  - `SECURE_HSTS_INCLUDE_SUBDOMAINS=1`
-  - `SECURE_HSTS_PRELOAD=1`
-  - `POSTGRES_CONNECTION_STRING`（Zeabur Postgres 外掛會自動注入）
-- 發布（Release）指令：
-  - `bash scripts/release.sh`
-    - 內容為 `python manage.py migrate && python manage.py collectstatic --noinput`
- 
-部署完成後，請至 `/admin/` 登入；若尚未建立帳號，在本機或容器內執行：
-```bash
-python manage.py createsuperuser
-```
