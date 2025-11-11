@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from requests.utils import quote
 
-from motry.models import Vehicle
+from apps.motry.models import Vehicle
 
 
 class Command(BaseCommand):

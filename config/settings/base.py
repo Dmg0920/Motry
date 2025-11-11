@@ -22,11 +22,17 @@ DJANGO_APPS = [
     "django.contrib.staticfiles",
 ]
 
-THIRD_PARTY_APPS = []
+THIRD_PARTY_APPS = [
+    "django.contrib.sites",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
+]
 
 LOCAL_APPS = [
     "apps.core",
-    "motry",
+    "apps.motry",
     "apps.accounts",
 ]
 
@@ -41,6 +47,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -48,7 +55,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -56,7 +63,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "motry.context_processors.vehicle_brand_map",
+                "apps.motry.context_processors.vehicle_brand_map",
             ],
         },
     }
@@ -92,7 +99,7 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",  # ← 使用 Whitenoise
     },
 }
-STATICFILES_DIRS = [BASE_DIR / "static"]
+STATICFILES_DIRS = []
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -130,3 +137,48 @@ LOGGING = {
 
 # 自訂使用者模型
 AUTH_USER_MODEL = 'accounts.User'
+
+# config/settings/base.py
+
+SITE_ID = 1
+
+# config/settings/base.py
+
+AUTHENTICATION_BACKENDS = [
+    # Django 預設的認證後端
+    'django.contrib.auth.backends.ModelBackend',
+
+    # allauth 的認證後端 (支援社交登入)
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+# config/settings/base.py
+
+# allauth 設定
+ACCOUNT_AUTHENTICATION_METHOD = 'username_email'  # 允許使用 username 或 email 登入
+ACCOUNT_EMAIL_REQUIRED = True  # 註冊時必須填寫 email
+ACCOUNT_EMAIL_VERIFICATION = 'optional'  # email 驗證為選填 (可改為 'mandatory' 強制驗證)
+ACCOUNT_USERNAME_REQUIRED = False  # 社交登入不需要 username，使用 email 即可
+LOGIN_REDIRECT_URL = '/'  # 登入後導向首頁
+LOGOUT_REDIRECT_URL = '/'  # 登出後導向首頁
+
+# 社交登入設定
+SOCIALACCOUNT_AUTO_SIGNUP = True  # 使用社交登入時自動建立帳號
+SOCIALACCOUNT_QUERY_EMAIL = True  # 向社交平台請求 email
+SOCIALACCOUNT_LOGIN_ON_GET = True  # 直接重定向到 OAuth 頁面，跳過中間確認頁面
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True  # 允許使用 email 進行社交帳號認證
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True  # 自動連結相同 email 的既有帳號
+
+# Google OAuth 設定：指定要取得的資訊範圍
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',  # 取得個人資料（名字、頭像等）
+            'email',    # 取得 email
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',  # 不需要 refresh token
+        },
+        'FETCH_USERINFO': True,  # 從 Google 取得用戶資訊
+    }
+}

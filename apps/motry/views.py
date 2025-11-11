@@ -84,7 +84,7 @@ def search(request: HttpRequest) -> HttpResponse:
 		"hp_max": hp_max,
 		"cylinders": cylinders,
 	}
-	return render(request, "search_results.html", context)
+	return render(request, "motry/search_results.html", context)
 
 
 def vehicle_detail(request: HttpRequest, id: int) -> HttpResponse:
@@ -116,7 +116,7 @@ def vehicle_detail(request: HttpRequest, id: int) -> HttpResponse:
 
 	return render(
 		request,
-		"vehicle_detail.html",
+		"motry/vehicle_detail.html",
 		{
 			"vehicle": vehicle,
 			"post_form": post_form,
@@ -133,7 +133,7 @@ def vehicle_create(request: HttpRequest) -> HttpResponse:
 	if request.method == "POST" and request.POST.get("refresh") == "1":
 		# 僅切換類型，重繪表單，不觸發驗證與儲存
 		form = VehicleCreateForm(request.POST, selected_type=selected_type)
-		return render(request, "vehicle_form.html", {"form": form})
+		return render(request, "motry/vehicle_form.html", {"form": form})
 
 	if request.method == "POST":
 		form = VehicleCreateForm(request.POST, selected_type=selected_type)
@@ -143,7 +143,7 @@ def vehicle_create(request: HttpRequest) -> HttpResponse:
 			return redirect("vehicle_detail", id=vehicle.id)
 	else:
 		form = VehicleCreateForm(selected_type=selected_type)
-	return render(request, "vehicle_form.html", {"form": form})
+	return render(request, "motry/vehicle_form.html", {"form": form})
 
 
 @login_required
@@ -172,7 +172,7 @@ def post_create(request: HttpRequest) -> HttpResponse:
 		selected_vehicle = Vehicle.objects.filter(pk=vehicle_id).first() if vehicle_id else None
 		return render(
 			request,
-			"post_form.html",
+			"motry/post_form.html",
 			{
 				"form": form,
 				"user_vehicles": user_vehicles,
@@ -199,7 +199,7 @@ def post_create(request: HttpRequest) -> HttpResponse:
 			selected_vehicle = Vehicle.objects.filter(pk=vehicle_id).first()
 		return render(
 			request,
-			"post_form.html",
+			"motry/post_form.html",
 			{
 				"form": form,
 				"user_vehicles": user_vehicles,
@@ -343,7 +343,7 @@ def register(request: HttpRequest) -> HttpResponse:
 	else:
 		form = UserCreationForm()
 
-	return render(request, "auth/register.html", {"form": form})
+	return render(request, "motry/auth/register.html", {"form": form})
 
 
 @login_required
@@ -365,7 +365,7 @@ def user_garage(request: HttpRequest) -> HttpResponse:
 
 	return render(
 		request,
-		"garage.html",
+		"motry/garage.html",
 		{
 			"form": form,
 			"user_vehicles": user_vehicles,

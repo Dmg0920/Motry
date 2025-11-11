@@ -4,7 +4,7 @@ from urllib.parse import quote_plus
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from motry.models import Vehicle, VehicleImage
+from apps.motry.models import Vehicle, VehicleImage
 
 
 class Command(BaseCommand):
@@ -183,4 +183,3 @@ class Command(BaseCommand):
 		seed_source = "-".join(filter(None, [make or "", model_name or ""])) or "motry"
 		seed = int(hashlib.sha1(seed_source.encode("utf-8")).hexdigest(), 16) % 10000
 		return f"https://loremflickr.com/800/450/{query}?lock={seed}"
-

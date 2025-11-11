@@ -2,8 +2,8 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.db.models import Count
 
-from motry.forms import BRANDS_BY_TYPE
-from motry.models import Tag, Vehicle, UserVehicle
+from apps.motry.forms import BRANDS_BY_TYPE
+from apps.motry.models import Tag, Vehicle, UserVehicle
 
 
 def home(request: HttpRequest) -> HttpResponse:

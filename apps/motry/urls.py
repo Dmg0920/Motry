@@ -16,6 +16,6 @@ urlpatterns = [
 	path("garage/", views.user_garage, name="user_garage"),
 	path("garage/<int:user_vehicle_id>/delete/", views.user_vehicle_delete, name="user_vehicle_delete"),
 	path("auth/register/", views.register, name="register"),
-	path("auth/login/", auth_views.LoginView.as_view(template_name="auth/login.html"), name="login"),
+	path("auth/login/", auth_views.LoginView.as_view(template_name="motry/auth/login.html"), name="login"),
 	path("auth/logout/", auth_views.LogoutView.as_view(), name="logout"),
 ]

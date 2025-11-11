@@ -9,7 +9,7 @@ import requests
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from motry.models import Vehicle, VehicleImage
+from apps.motry.models import Vehicle, VehicleImage
 
 
 CARQUERY_ENDPOINT = "https://www.carqueryapi.com/api/0.3/"
