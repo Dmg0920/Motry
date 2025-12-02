@@ -3,13 +3,14 @@ from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
-from django.db.models import Avg, Count, Q, Prefetch
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
-from django.shortcuts import get_object_or_404, redirect, render
+from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.utils.http import url_has_allowed_host_and_scheme
+from django.db.models import Avg, Count, Q, Prefetch
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views import View
 from .forms import (
 	PostCreateForm,
 	CommentCreateForm,
@@ -19,6 +20,10 @@ from .forms import (
 	BRANDS_BY_TYPE,
 )
 from .models import Vehicle, VehicleImage, Post, PostImage, Comment, Tag, PostTag, Like, UserVehicle, Rating
+
+
+VEHICLE_LIST_CACHE_KEY = "api:vehicle_list"
+VEHICLE_LIST_CACHE_TIMEOUT = 60  # seconds
 
 
 def search(request: HttpRequest) -> HttpResponse:
@@ -114,6 +119,10 @@ def vehicle_detail(request: HttpRequest, id: int) -> HttpResponse:
 		initial_score = str(user_rating.score) if user_rating else ""
 		rating_form = RatingForm(initial={"score": initial_score})
 
+	user_vehicle_entry = None
+	if request.user.is_authenticated:
+		user_vehicle_entry = UserVehicle.objects.filter(user=request.user, vehicle=vehicle).first()
+
 	return render(
 		request,
 		"motry/vehicle_detail.html",
@@ -123,6 +132,7 @@ def vehicle_detail(request: HttpRequest, id: int) -> HttpResponse:
 			"comment_form": comment_form,
 			"user_rating": user_rating,
 			"rating_form": rating_form,
+			"user_vehicle_entry": user_vehicle_entry,
 		},
 	)
 
@@ -389,6 +399,116 @@ def user_vehicle_delete(request: HttpRequest, user_vehicle_id: int) -> HttpRespo
 		return redirect("user_garage")
 
 	return redirect("user_garage")
+
+
+@login_required
+def api_garage_add(request: HttpRequest, vehicle_id: int) -> JsonResponse:
+	"""
+	Week 11 AJAX 範例：加入收藏車庫。
+	- Method: POST
+	- URL: /api/garage/add/<vehicle_id>/
+	- Response: {"success": bool, "message": str, "in_garage": bool, "user_vehicle_id": int}
+	- Status: 201 建立成功；200 已存在；405 方法錯誤；404 找不到車輛。
+	"""
+	if request.method != "POST":
+		return JsonResponse({"success": False, "message": "僅支援 POST 方法。"}, status=405)
+
+	vehicle = get_object_or_404(Vehicle, pk=vehicle_id)
+	existing = UserVehicle.objects.filter(user=request.user, vehicle=vehicle).first()
+	if existing:
+		return JsonResponse(
+			{
+				"success": False,
+				"message": f"{vehicle} 已在你的車庫中。",
+				"in_garage": True,
+				"user_vehicle_id": existing.id,
+			},
+			status=200,
+		)
+
+	user_vehicle = UserVehicle.objects.create(user=request.user, vehicle=vehicle)
+	messages.success(request, f"已將 {vehicle} 加入我的車庫！")
+	return JsonResponse(
+		{
+			"success": True,
+			"message": f"已將 {vehicle} 加入我的車庫！",
+			"in_garage": True,
+			"user_vehicle_id": user_vehicle.id,
+		},
+		status=201,
+	)
+
+
+@login_required
+def api_garage_remove(request: HttpRequest, vehicle_id: int) -> JsonResponse:
+	"""
+	Week 11 AJAX 範例：移除收藏車庫。
+	- Method: POST
+	- URL: /api/garage/remove/<vehicle_id>/
+	- Response: {"success": bool, "message": str, "in_garage": bool}
+	- Status: 200 成功；404 未收藏；405 方法錯誤；404 找不到車輛。
+	"""
+	if request.method != "POST":
+		return JsonResponse({"success": False, "message": "僅支援 POST 方法。"}, status=405)
+
+	vehicle = get_object_or_404(Vehicle, pk=vehicle_id)
+	user_vehicle = UserVehicle.objects.filter(user=request.user, vehicle=vehicle).first()
+	if not user_vehicle:
+		return JsonResponse(
+			{
+				"success": False,
+				"message": "這台車尚未收藏。",
+				"in_garage": False,
+			},
+			status=404,
+		)
+
+	user_vehicle.delete()
+	messages.info(request, f"已將 {vehicle} 自我的車庫移除。")
+	return JsonResponse(
+		{
+			"success": True,
+			"message": f"已將 {vehicle} 自我的車庫移除。",
+			"in_garage": False,
+		},
+		status=200,
+	)
+
+
+class VehicleListAPIView(View):
+	"""
+	Read-only JSON API（Week 11 範例）：回傳車輛清單並使用 Redis 快取 60 秒。
+	Response:
+	{
+		"success": true,
+		"data": {"vehicles": [{id, type, brand, model, displacement_cc, horsepower_ps, cylinders}]}
+	}
+	"""
+
+	def get(self, request: HttpRequest) -> JsonResponse:
+		cached = cache.get(VEHICLE_LIST_CACHE_KEY)
+		if cached is not None:
+			return JsonResponse(cached, status=200)
+
+		vehicles = list(
+			Vehicle.objects.order_by("brand", "model").values(
+				"id",
+				"type",
+				"brand",
+				"model",
+				"displacement_cc",
+				"horsepower_ps",
+				"cylinders",
+			)
+		)
+		response_data = {
+			"success": True,
+			"data": {
+				"vehicles": vehicles,
+			},
+		}
+		cache.set(VEHICLE_LIST_CACHE_KEY, response_data, VEHICLE_LIST_CACHE_TIMEOUT)
+		return JsonResponse(response_data, status=200)
 
 
 def _prepare_user_vehicle_field(form: PostCreateForm, user_vehicles: list[UserVehicle]) -> None:

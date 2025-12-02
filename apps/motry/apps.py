@@ -5,3 +5,9 @@ class MotryConfig(AppConfig):
 	default_auto_field = "django.db.models.BigAutoField"
 	name = "apps.motry"
 	verbose_name = "Motry"
+
+	def ready(self) -> None:
+		try:
+			import apps.motry.signals  # noqa: F401
+		except ImportError:
+			return

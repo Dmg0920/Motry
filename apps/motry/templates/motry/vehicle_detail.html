@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load motry_extras %}
+{% load static motry_extras %}
 {% block content %}
 <div class="page-container page-stack">
 	<section class="layout layout--split layout--align-top">
@@ -26,9 +26,29 @@
 			</div>
 			{% if user.is_authenticated %}
 				<div class="hero-actions">
+					<button
+						type="button"
+						class="button button-ghost garage-toggle-button"
+						data-garage-toggle
+						data-vehicle-id="{{ vehicle.id }}"
+						data-in-garage="{% if user_vehicle_entry %}true{% else %}false{% endif %}"
+					>
+						{% if user_vehicle_entry %}
+							❤️ 已在我的車庫
+						{% else %}
+							🤍 加入我的車庫
+						{% endif %}
+					</button>
 					<a href="{% url 'post_create' %}?vehicle={{ vehicle.id }}" class="button">發表心得</a>
 					<a href="{% url 'user_garage' %}" class="button button-ghost">管理我的車庫</a>
 				</div>
+				<p class="hero-subtitle hero-subtitle--compact" data-garage-status>
+					{% if user_vehicle_entry %}
+						已於 {{ user_vehicle_entry.created_at|date:"Y-m-d" }} 收藏，可在「我的車庫」管理備註與照片。
+					{% else %}
+						收藏後可在「我的車庫」快速管理車輛與發表心得。
+					{% endif %}
+				</p>
 			{% else %}
 				<p class="hero-subtitle hero-subtitle--compact">登入後即可收藏這台車並分享你的使用心得。</p>
 				<div class="hero-actions">
@@ -308,4 +328,9 @@
 {% else %}
 	<a href="/admin/login/?next=/vehicle/{{ vehicle.id }}/" class="button fab">登入後發表</a>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+	{{ block.super }}
+	<script src="{% static 'motry/js/vehicle_detail.js' %}"></script>
 {% endblock %}

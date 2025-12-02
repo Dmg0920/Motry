@@ -14,12 +14,12 @@ _allowed_hosts = os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost")
 ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts.split(",") if host.strip()]
 
 DJANGO_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
 ]
 
 THIRD_PARTY_APPS = [
@@ -28,6 +28,8 @@ THIRD_PARTY_APPS = [
     "allauth.account",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
+    "channels",
+    "daphne",
 ]
 
 LOCAL_APPS = [
@@ -87,8 +89,10 @@ USE_I18N = True
 USE_TZ = True
 
 # 靜態檔案設定
-STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'  # ← 新增:收集後的靜態檔案存放位置
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"  # collectstatic 產出
+# 可放自訂前端資源的目錄；預設留空避免找不到路徑時報錯
+STATICFILES_DIRS: list[Path] = []
 
 # Whitenoise 設定
 STORAGES = {
@@ -99,7 +103,6 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",  # ← 使用 Whitenoise
     },
 }
-STATICFILES_DIRS = []
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -183,3 +186,53 @@ SOCIALACCOUNT_PROVIDERS = {
 }
 
 AUTH_USER_MODEL = 'accounts.User'
+
+# ==========================================
+# Cache 設定 - 使用 Redis
+# ==========================================
+REDIS_URI = os.getenv("REDIS_URI", "redis://127.0.0.1:6379/1")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URI,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "TIMEOUT": 300,  # 預設快取時間 5 分鐘（單位：秒）
+    }
+}
+
+# Channels WebSocket 設定（Week12 即時通知）
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [REDIS_URI],
+        },
+    }
+}
+
+# ==========================================
+# Celery 設定 - 使用 Redis 作為 Broker
+# ==========================================
+# Broker：任務佇列存放的地方（使用 Redis）
+CELERY_BROKER_URL = REDIS_URI
+
+# Result Backend：任務結果存放的地方（可選，這裡也用 Redis）
+CELERY_RESULT_BACKEND = REDIS_URI
+
+# 時區設定（與 Django 一致）
+CELERY_TIMEZONE = TIME_ZONE
+
+# 接受的內容類型
+CELERY_ACCEPT_CONTENT = ['json']
+
+# 任務序列化格式
+CELERY_TASK_SERIALIZER = 'json'
+
+# 結果序列化格式
+CELERY_RESULT_SERIALIZER = 'json'
+
+# 啟動時重試連線（消除 Celery 6.0 棄用警告）
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True

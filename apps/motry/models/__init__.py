@@ -4,6 +4,8 @@ from django.utils import timezone
 
 
 class Vehicle(models.Model):
+	"""核心車輛資料表（Week 5/6 範例：一對多/多對多的中心實體）。"""
+
 	type = models.CharField(max_length=10)  # car/bike
 	brand = models.CharField(max_length=50)
 	model = models.CharField(max_length=100)
@@ -29,6 +31,8 @@ class Vehicle(models.Model):
 
 
 class VehicleImage(models.Model):
+	"""車輛圖片（外鍵一對多示範）。"""
+
 	vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="images")
 	image_url = models.CharField(max_length=255)
 	sort_order = models.SmallIntegerField(null=True, blank=True)
@@ -41,6 +45,8 @@ class VehicleImage(models.Model):
 
 
 class Post(models.Model):
+	"""車輛心得貼文（Week 7 CRUD 示範）。"""
+
 	vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="posts")
 	user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="posts")
 	body_text = models.TextField(max_length=2000)
@@ -56,6 +62,8 @@ class Post(models.Model):
 
 
 class PostImage(models.Model):
+	"""貼文附圖。"""
+
 	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="images")
 	image_url = models.CharField(max_length=255, blank=True)
 	image = models.ImageField(upload_to="posts/%Y/%m/", blank=True, null=True)
@@ -72,6 +80,8 @@ class PostImage(models.Model):
 
 
 class Comment(models.Model):
+	"""單層留言（Post → Comment 一對多）。"""
+
 	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="comments")
 	user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="comments")
 	body_text = models.TextField()
@@ -94,6 +104,8 @@ class Comment(models.Model):
 
 
 class Tag(models.Model):
+	"""標籤（與 Post 多對多）。"""
+
 	name = models.CharField(max_length=30, unique=True)
 
 	class Meta:
@@ -104,6 +116,8 @@ class Tag(models.Model):
 
 
 class PostTag(models.Model):
+	"""Post-Tag 中介表（顯式 through model）。"""
+
 	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="post_tags")
 	tag = models.ForeignKey(Tag, on_delete=models.CASCADE, related_name="tag_posts")
 
@@ -115,6 +129,8 @@ class PostTag(models.Model):
 
 
 class Like(models.Model):
+	"""按讚紀錄（Post 一對多，每人限制一筆）。"""
+
 	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="likes")
 	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="likes")
 	created_at = models.DateTimeField(default=timezone.now)
@@ -127,6 +143,8 @@ class Like(models.Model):
 
 
 class Rating(models.Model):
+	"""車輛評分（Vehicle 一對多，使用 unique_together 限制一人一分）。"""
+
 	vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="ratings")
 	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="ratings")
 	score = models.SmallIntegerField()
@@ -140,6 +158,8 @@ class Rating(models.Model):
 
 
 class UserVehicle(models.Model):
+	"""使用者收藏車庫（Week 10 閱讀清單概念對應）。"""
+
 	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="user_vehicles")
 	vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="user_vehicles")
 	alias = models.CharField(max_length=100, blank=True)

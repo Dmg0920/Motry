@@ -10,6 +10,7 @@ __pycache__/
 .env.local
 .venv/
 venv/
+*.sqlite3
 
 # Django
 /db.sqlite3
