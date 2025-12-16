@@ -1,81 +1,93 @@
 {% load motry_extras %}
+
 <article class="comment comment--depth-{{ comment.get_depth }}" id="comment-{{ comment.id }}" data-comment-depth="{{ comment.get_depth }}">
-	<div class="comment__avatar" aria-hidden="true">
-		{% if comment.user and comment.user.username %}
-			{{ comment.user.username|first|upper }}
-		{% else %}
-			客
-		{% endif %}
-	</div>
-	<div class="comment__content">
-		<header class="comment__header">
-			<strong>{{ comment.user.username|default:"匿名車友" }}</strong>
-			<span>{{ comment.created_at|timesince }} 前</span>
-		</header>
-		<p class="comment__text">{{ comment.body_text }}</p>
-		{% if comment.image %}
-			<img
-				src="{{ comment.image.url }}"
-				alt="留言圖片"
-				class="comment__image"
-			/>
-		{% elif comment.image_url and not comment.image_url|is_default_image %}
-			<img
-				src="{{ comment.image_url }}"
-				alt="留言圖片"
-				class="comment__image"
-			/>
-		{% endif %}
-		<div class="comment__toolbar">
-			{% if user.is_authenticated and comment.can_reply %}
-				<button type="button" class="comment__reply-toggle" data-reply-toggle data-target="reply-form-{{ comment.id }}">回覆</button>
-			{% endif %}
-			{% if user.is_authenticated %}
-				{% if comment.user_id == user.id or user.is_staff %}
-					<form action="{% url 'comment_delete' comment.id %}" method="post" class="comment__delete-form">
-						{% csrf_token %}
-						<input type="hidden" name="next" value="{{ request.get_full_path }}" />
-						<button type="submit">刪除</button>
-					</form>
-				{% endif %}
-			{% endif %}
-		</div>
+    <div class="comment__avatar" aria-hidden="true">
+        {% if comment.user and comment.user.username %}
+            {{ comment.user.username|first|upper }}
+        {% else %}
+            客
+        {% endif %}
+    </div>
 
-		{# 回覆列表 #}
-		<div class="comment__replies" data-replies-container="{{ comment.id }}"></div>
+    <div class="comment__content">
+        <header class="comment__header">
+            <strong>{{ comment.user.username|default:"匿名車友" }}</strong>
+            <span>{{ comment.created_at|timesince }} 前</span>
+        </header>
 
-		{# 回覆表單 #}
-		{% if user.is_authenticated and comment.can_reply %}
-			<form
-				action="#"
-				method="post"
-				enctype="multipart/form-data"
-				class="comment-form comment-form--inline comment-reply-form"
-				id="reply-form-{{ comment.id }}"
-				data-comment-form
-				data-parent-id="{{ comment.id }}"
-				data-post-id="{{ comment.post_id }}"
-				hidden
-			>
-				{% csrf_token %}
-				<div class="comment-form__fields">
-					<textarea
-						name="body_text"
-						rows="1"
-						placeholder="回覆 {{ comment.user.username|default:'車友' }}…"
-						class="comment-form__input"
-						required
-					></textarea>
-					<div class="comment-form__actions comment-form__actions--inline">
-						<label class="comment-form__upload" title="上傳圖片">
-							📷
-							<input type="file" name="image" accept="image/*" class="comment-form__file-input" />
-						</label>
-						<input type="url" name="image_url" placeholder="圖片網址（選填）" class="comment-form__url comment-form__url--inline" />
-						<button type="submit" class="comment-form__submit">送出</button>
-					</div>
-				</div>
-			</form>
-		{% endif %}
-	</div>
+        <p class="comment__text">{{ comment.body_text }}</p>
+
+        {% if comment.image %}
+            <img src="{{ comment.image.url }}" alt="留言圖片" class="comment__image" />
+        {% elif comment.image_url and not comment.image_url|is_default_image %}
+            <img src="{{ comment.image_url }}" alt="留言圖片" class="comment__image" />
+        {% endif %}
+
+        <div class="comment__toolbar">
+            {# 顯示回覆按鈕 #}
+            {% if user.is_authenticated and comment.can_reply %}
+                <button type="button" class="comment__reply-toggle" data-reply-toggle data-target="reply-form-{{ comment.id }}">回覆</button>
+            {% endif %}
+
+            {# 顯示刪除按鈕：作者本人 OR 管理員(Staff) #}
+            {% if user.is_authenticated %}
+                {% if comment.user_id == user.id or user.is_staff %}
+                    <form action="{% url 'delete_comment' comment.id %}" method="POST" class="comment__delete-form" style="display:inline;" onsubmit="return confirm('確定要刪除這則評論嗎？');">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+                        
+                        <button type="submit" class="btn btn-sm btn-danger" style="color: red; border: none; background: none; cursor: pointer;">
+                            {% if comment.user_id == user.id %}
+                                刪除
+                            {% else %}
+                                刪除違規
+                            {% endif %}
+                        </button>
+                    </form>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        {# 4. 遞迴顯示子留言 #}
+        <div class="comment__replies" data-replies-container="{{ comment.id }}">
+            {% comment %} 
+                這裡通常會透過遞迴 include 自己來顯示子留言，
+                或者由 JavaScript 動態載入
+            {% endcomment %}
+        </div>
+
+        {# 5. 回覆表單 (預設隱藏) #}
+        {% if user.is_authenticated and comment.can_reply %}
+            <form
+                action="#" 
+                method="post"
+                enctype="multipart/form-data"
+                class="comment-form comment-form--inline comment-reply-form"
+                id="reply-form-{{ comment.id }}"
+                data-comment-form
+                data-parent-id="{{ comment.id }}"
+                data-post-id="{{ comment.post_id }}"
+                hidden
+            >
+                {% csrf_token %}
+                <div class="comment-form__fields">
+                    <textarea
+                        name="body_text"
+                        rows="1"
+                        placeholder="回覆 {{ comment.user.username|default:'車友' }}…"
+                        class="comment-form__input"
+                        required
+                    ></textarea>
+                    <div class="comment-form__actions comment-form__actions--inline">
+                        <label class="comment-form__upload" title="上傳圖片">
+                            📷
+                            <input type="file" name="image" accept="image/*" class="comment-form__file-input" />
+                        </label>
+                        <input type="url" name="image_url" placeholder="圖片網址（選填）" class="comment-form__url comment-form__url--inline" />
+                        <button type="submit" class="comment-form__submit">送出</button>
+                    </div>
+                </div>
+            </form>
+        {% endif %}
+    </div>
 </article>
