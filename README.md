@@ -1,145 +1,159 @@
-# Motry
+# Motry - 車款搜尋與心得分享平台
 
-以 Django MTV 與 SQLite 實作的車款搜尋與心得分享應用，涵蓋課程第 1～12 週的核心內容（Git、環境、MTV、CRUD、Auth、AJAX、Redis、WebSocket）。已加入 Week 13 的 Celery 背景任務示範（匯出車輛 CSV），尚未設定 Beat 排程。
+**Motry** 是一個基於 Django MTV 架構開發的車輛資訊社群平台。專案整合了車款資料庫搜尋、使用者心得分享、即時互動通知以及個人化車庫管理功能。系統後端採用 Redis 進行資料快取與訊息佇列處理，並結合 WebSocket 實現即時推播，旨在提供高效且具互動性的使用者體驗。
 
-## 環境建置與 Git 流程（Week 1–2）
+## 🛠 技術架構 (Tech Stack)
+
+  * **核心框架**: Python, Django (MTV Pattern)
+  * **資料庫**: SQLite (開發環境), 支援 PostgreSQL/MySQL
+  * **非同步與快取**: Redis
+  * **即時通訊**: Django Channels (WebSocket)
+  * **背景任務**: Celery (非同步任務處理)
+  * **前端技術**: HTML5, CSS3, JavaScript (AJAX), Bootstrap (or custom CSS)
+  * **部署支援**: Whitenoise (靜態檔管理)
+
+## ✨ 功能特色
+
+### 1\. 車輛資料與搜尋
+
+  * **進階搜尋**: 支援依據關鍵字、車型 (Type)、品牌 (Brand) 進行篩選。
+  * **車款詳情**: 完整呈現規格數據、圖集展示。
+  * **外部資料整合**: 內建管理指令可同步 **NHTSA** 與 **CarQuery** API 資料。
+
+### 2\. 社群互動
+
+  * **心得分享**: 使用者可針對特定車款發布圖文心得 (Posts)。
+  * **互動機制**: 支援留言 (Comments)、按讚 (Likes) 與星級評分 (Ratings)。
+  * **即時通知**: 當有新貼文發布時，線上使用者會透過 WebSocket 收到即時推播提示。
+
+### 3\. 個人化車庫 (My Garage) & 最愛
+
+  * **我的車庫**: 模擬真實車庫概念，使用者可加入擁有的車輛，並上傳愛車照片與備註 (UserVehicle)。
+  * **我的最愛**: 快速收藏/追蹤感興趣的車款 (FavoriteVehicle)，支援 AJAX 無刷新操作。
+  * **會員系統**: 包含註冊、登入、個人資料管理 (自訂頭像、電話、簡介)。
+
+### 4\. 效能優化與 API
+
+  * **Redis 快取**: 針對品牌清單 (Context Processor) 與車輛列表 API 進行快取，減少資料庫查詢負擔。
+  * **RESTful API**: 提供車庫操作、最愛切換及車輛資料讀取的 JSON API。
+  * **資料匯出**: 整合 Celery 背景任務，支援將車輛資料匯出為 CSV。
+
+-----
+
+## 🚀 快速開始 (Installation)
+
+### 1\. 環境建置
+
 ```bash
-# 於專案根目錄（本檔同層）
+# 1. Clone 專案並進入目錄
+git clone <YOUR_REPO_URL>
+cd motry
+
+# 2. 建立虛擬環境
 python -m venv .venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt
 
-# 建立本地環境變數（請依需求調整值）
+# 3. 安裝依賴套件
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 2\. 環境變數設定
+
+複製範例檔並設定 `SECRET_KEY` 與資料庫連線資訊：
+
+```bash
 cp .env.example .env
+
+# 產生一組新的 Secret Key
 python -c "from django.core.management.utils import get_random_secret_key as g; print(g())"
 ```
-離開虛擬環境：`deactivate`
 
-Git 建議流程：
-```bash
-git init
-git checkout -b main
-git add .
-git commit -m "chore: bootstrap Motry"
-git remote add origin <YOUR_REPO_URL>
-git push -u origin main
-```
-之後依功能開分支 (`git checkout -b feat/...`)，完成後 merge 回 main。
+### 3\. 啟動服務 (Redis & Django)
 
-## 專案啟動
+本專案依賴 Redis 服務，請確保本地已安裝並啟動 Redis (預設 `localhost:6379`)。
+
 ```bash
+# 4. 資料庫遷移與建立超級使用者
 python manage.py makemigrations
 python manage.py migrate
 python manage.py createsuperuser
+
+# 5. 啟動開發伺服器
 python manage.py runserver
 ```
-- 前台首頁：`/`
-- Django Admin：`/admin/`
 
-## 功能摘要與重要路由
-- 首頁與搜尋：`/`、`/search?query=&type=&brand=`
-- 車款頁：`/vehicle/<id>/`（規格、圖集、心得流、評分）
-- 發文 / 留言 / 按讚：`/post/new`、`/comment/new`、`/like/toggle/<post_id>/`
-- 我的車庫（擁有/收藏車輛，可寫備註）：`/garage/`
-- 我的最愛（快速追蹤喜歡的車款）：`/favorites/`
-- Auth：`/auth/register`、`/auth/login`、`/auth/logout`
+  * **前台首頁**: `http://127.0.0.1:8000/`
+  * **後台管理**: `http://127.0.0.1:8000/admin/`
 
-## 資料庫設計概覽（Week 5–6）
-- `User`（自訂欄位：電話、頭像、個人簡介）
-- `Vehicle` ⟷ `VehicleImage`：一對多
-- `Vehicle` ⟷ `Tag`：多對多（through `PostTag` 連結 `Post`）
-- `Vehicle` ⟷ `Post` ⟷ `Comment`：一對多鏈
-- `Post` ⟷ `Like`：一對多（unique_together 限制每人一讚）
-- `Vehicle` ⟷ `Rating`：一對多（每人一分）
-- `User` ⟷ `UserVehicle`：一對多（我的車庫/閱讀清單概念）
-- `User` ⟷ `FavoriteVehicle`：一對多（我的最愛清單）
+-----
 
-## Auth、我的車庫與我的最愛（Week 10）
-- `AUTH_USER_MODEL = accounts.User`（繼承 `AbstractUser`）。
-- 登入/註冊/登出路由已配置。
-- `UserVehicle` 對應課程的「閱讀清單」實作：收藏車輛、備註、圖片上傳，並在車款頁或 `我的車庫` 頁面管理。
-- `FavoriteVehicle` 提供輕量的「我的最愛」清單，僅標記喜歡的車款，車款頁可 AJAX 加入/移除，並在 `/favorites/` 檢視。
+## 🗄️ 資料庫模型設計
 
-## CRUD 與模板（Week 7）
-- `apps/motry/views.py` 含搜尋、車款詳情、發文、留言、刪文/刪留言、評分、按讚等流程，搭配 Django messages 呈現操作結果。
-- 模板繼承 `core/base.html`，含導航、品牌篩選、訊息區塊；`vehicle_detail.html` 同時提供「我的最愛」與「我的車庫」按鈕。
+系統主要由以下實體關係構成：
 
-## 靜態檔與部署（Week 9）
-- `STATIC_ROOT = staticfiles`、`MEDIA_ROOT = media`，Whitenoise 已啟用。
-- 可自訂 `STATICFILES_DIRS`（預設空 list）。
-- 部署前請設定環境變數：`DJANGO_DEBUG=0`、`SECRET_KEY`、`ALLOWED_HOSTS`、`REDIS_URI`。
-- 收集靜態檔：`python manage.py collectstatic`
+  * **User**: 擴充 AbstractUser，增加電話、頭像等欄位。
+  * **Vehicle**: 核心模型，包含品牌、型號、排氣量等規格。
+      * 關聯: `VehicleImage` (一對多), `Rating` (一對多), `Post` (一對多)。
+  * **Post & Interaction**:
+      * `Post`: 包含內文與關聯車款。
+      * `Comment`: 貼文留言。
+      * `Like`: 按讚機制 (每人每文限一次)。
+  * **Personalization**:
+      * `UserVehicle`: **我的車庫** (擁有關係，含備註與圖片)。
+      * `FavoriteVehicle`: **我的最愛** (收藏清單)。
 
-## API 範例（Week 11）
-- AJAX 我的車庫：
-  - `POST /api/garage/add/<vehicle_id>/` → `{"success": true, "in_garage": true, "user_vehicle_id": ...}`
-  - `POST /api/garage/remove/<vehicle_id>/` → `{"success": true, "in_garage": false}`
-- AJAX 我的最愛：
-  - `POST /api/favorites/add/<vehicle_id>/` → `{"success": true, "favorite": true}`
-  - `POST /api/favorites/remove/<vehicle_id>/` → `{"success": true, "favorite": false}`
-- Read-only JSON：
-  - `GET /api/vehicles/`
-  - 範例回應：
-    ```json
-    {
-      "success": true,
-      "data": {
-        "vehicles": [
-          {"id": 1, "type": "car", "brand": "BMW", "model": "M3", "displacement_cc": 2993, "horsepower_ps": 510, "cylinders": 6}
-        ]
-      }
-    }
-    ```
+-----
 
-## Redis 快取與 Context Processor（Week 12）
-- `apps.motry.context_processors.vehicle_brand_map`：品牌清單優先從 Redis 取，用不到 DB。
-- `apps/motry/views.VehicleListAPIView`：車輛列表快取 60 秒（`api:vehicle_list`）。
-- `CACHES` 使用 `REDIS_URI`，預設 `redis://127.0.0.1:6379/1`。
+## 📡 API 與進階功能說明
 
-## Redis Demo（Week 12）
-啟動本地 Redis（macOS 例）：`brew install redis && brew services start redis`
+### 內部 API (AJAX 整合)
 
-執行示範：
+前端透過 JavaScript 非同步呼叫以下接口：
+
+  * **我的車庫**: `POST /api/garage/add/<id>/`, `POST /api/garage/remove/<id>/`
+  * **我的最愛**: `POST /api/favorites/add/<id>/`, `POST /api/favorites/remove/<id>/`
+  * **車輛資料**: `GET /api/vehicles/` (包含 Redis 快取機制)
+
+### WebSocket 即時通知
+
+  * **路由**: `ws://<host>/ws/motry/notifications/`
+  * **機制**: 透過 Django Signals 監聽 `Post` save 事件，利用 Channels Group 發送廣播。
+
+### 資料匯入工具 (Management Commands)
+
+專案內建爬蟲指令，用於初始化資料庫：
+
 ```bash
-export REDIS_URI=redis://127.0.0.1:6379/0  # 可省略用預設
-python redis_basic_demo.py     # String/Hash/List CRUD 範例
-python redis_cache_demo.py     # 模擬昂貴計算 + 快取 TTL
-```
-兩個檔案純 Python，不會 import Django。
-
-## 即時通知 WebSocket（Week 12）
-- 套件：`channels`、`channels-redis`，ASGI 由 `config/asgi.py` 路由 HTTP/WebSocket。
-- 路由：`ws://<host>/ws/motry/notifications/`
-- 事件：新增貼文 (`post_save`) 觸發推播，前端 `static/motry/js/notifications.js` 會顯示右下角提示。
-
-## 資料匯入（既有管理指令）
-```bash
-# NHTSA：僅抓車型名稱
+# 僅同步車型名稱 (NHTSA)
 python manage.py sync_vehicles --makes BMW Toyota
 
-# CarQuery：含年份、排氣量、馬力等規格
-python manage.py sync_carquery --makes BMW Toyota --years 2022 2023 --timeout 60 --retries 5
-# 每月排程示例（僅抓當年度）
-python manage.py sync_carquery --timeout 60 --retries 5
-# 取得所有年份（注意耗時）
-# python manage.py sync_carquery --makes BMW --all-years
+# 同步詳細規格 (CarQuery)
+python manage.py sync_carquery --makes BMW --years 2023 --timeout 60
 ```
 
-## 課程週次對應表
-- Week 1–2：`.gitignore`、`requirements.txt`、README 的環境建置與 Git 流程。
-- Week 3：Django MTV 架構 → `config/`、`apps/`、`manage.py`。
-- Week 5–6：資料庫設計 → README「資料庫設計概覽」、`apps/motry/models/`。
-- Week 7：CRUD → 搜尋、車款詳情、貼文/留言/評分/按讚、模板與 messages。
-- Week 9：靜態檔與部署 → Whitenoise/`STATIC_ROOT`/`collectstatic` 說明。
-- Week 10：Auth & 閱讀清單 → 自訂 User + 我的車庫（UserVehicle）與我的最愛（FavoriteVehicle）。
-- Week 11：AJAX & API → 車庫與最愛 API、`VehicleListAPIView`、前端 `sendRequest`/`vehicle_detail.js`。
-- Week 12：Redis & WebSocket → 品牌快取、Redis demo 腳本、WebSocket 新貼文通知。
-- Week 13：Celery → `apps/motry/tasks.py` 匯出車輛 CSV（基礎任務，未含 Beat 排程）。
+### Celery 背景任務
 
-## 未來工作
-- Celery Beat 排程、更多任務（目前僅匯出 CSV，未啟用排程）。
-- 可選：整合 `django-allauth` Google SSO（需設定 OAuth client）。
+  * 目前實作：車輛資料 CSV 匯出 (`apps.motry.tasks`)。
+  * 啟動 Worker (需另開終端機):
+    ```bash
+    celery -A config worker -l info
+    ```
 
-## License
-僅教學與內部使用示例，請依實際專案補充 License。
+-----
+
+## 📦 部署須知 (Deployment)
+
+若要部署至正式環境，請注意以下設定：
+
+1.  **環境變數**: 確保 `.env` 中 `DJANGO_DEBUG=0`，並設定正確的 `ALLOWED_HOSTS` 與 `REDIS_URI`。
+2.  **靜態檔**: 執行 `python manage.py collectstatic` 將檔案收集至 `staticfiles` 目錄 (已整合 Whitenoise)。
+3.  **ASGI**: 由於使用了 WebSocket，建議使用 `daphne` 或 `uvicorn` 搭配 `gunicorn` 進行部署，並指派至 `config.asgi:application`。
+
+-----
+
+### License
+
+本專案為開發示範用途。
+
+-----
