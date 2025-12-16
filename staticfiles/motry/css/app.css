@@ -1572,3 +1572,30 @@ select:disabled {
 		transition: none !important;
 	}
 }
+
+/* ========== 巢狀留言深度樣式 ========== */
+.comment--depth-0 {
+	/* 主留言 - 無縮排 */
+}
+
+.comment--depth-1 {
+	/* 第一層回覆 - 已經有 .comment__replies 的左邊距和邊框 */
+}
+
+.comment--depth-2 {
+	/* 第二層回覆(最深) - 稍微淡化 */
+	opacity: 0.95;
+}
+
+.comment--depth-2 .comment__avatar {
+	width: 36px;
+	height: 36px;
+	font-size: 0.85rem;
+}
+
+/* 防止超過三層 */
+.comment--depth-3,
+.comment--depth-4,
+.comment--depth-5 {
+	display: none;
+}

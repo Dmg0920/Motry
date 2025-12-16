@@ -250,10 +250,159 @@
     });
   }
 
+  function initAjaxRating() {
+    const forms = document.querySelectorAll('.rating-form');
+    if (!forms.length || typeof sendRequest !== 'function') return;
+
+    forms.forEach(form => {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const formData = new FormData(form);
+        const vehicleId = form.action.match(/\/vehicle\/(\d+)\/rate\//)?.[1];
+        if (!vehicleId) return;
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn?.textContent;
+        if (submitBtn) submitBtn.textContent = '評分中...';
+
+        try {
+          const response = await fetch(`/ajax/vehicle/${vehicleId}/rate/`, {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+            },
+            body: formData,
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            // 更新平均評分顯示
+            const scoreEl = document.querySelector('.rating-summary__score');
+            const labelEl = document.querySelector('.rating-summary__label');
+            if (scoreEl) scoreEl.textContent = data.avg_rating;
+            if (labelEl) labelEl.textContent = `平均評分（共 ${data.rating_count} 則）`;
+
+            alert(data.message);
+          } else {
+            alert(data.error || '評分失敗');
+          }
+        } catch (error) {
+          alert('評分失敗，請稍後再試');
+        } finally {
+          if (submitBtn && originalText) submitBtn.textContent = originalText;
+        }
+      });
+    });
+  }
+
+  function initAjaxComments() {
+    if (typeof sendRequest !== 'function') return;
+
+    // 處理所有留言表單（包括主留言和回覆）
+    document.addEventListener('submit', async (e) => {
+      const form = e.target;
+      if (!form.matches('[data-comment-form], .comment-form:not(.comment-form--inline)') &&
+          !form.closest('.comment-section')) {
+        return;
+      }
+
+      // 檢查是否是留言表單
+      const isCommentForm = form.querySelector('[name="body_text"]') &&
+                           form.querySelector('[name="post"]');
+      if (!isCommentForm) return;
+
+      e.preventDefault();
+
+      const formData = new FormData(form);
+      const submitBtn = form.querySelector('button[type="submit"]');
+      const originalText = submitBtn?.textContent;
+      if (submitBtn) {
+        submitBtn.textContent = '送出中...';
+        submitBtn.disabled = true;
+      }
+
+      try {
+        const response = await fetch('/ajax/comment/new/', {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+          },
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // 插入新留言HTML
+          const parentId = data.parent_id;
+          let container;
+
+          if (parentId) {
+            // 這是回覆，插入到父留言的回覆區
+            container = document.querySelector(`[data-replies-container="${parentId}"]`);
+          } else {
+            // 這是主留言，插入到留言列表
+            container = form.closest('.comment-section').querySelector('.comment-thread');
+            if (!container) {
+              // 如果沒有留言列表，創建一個
+              const emptyState = form.closest('.comment-section').querySelector('.empty-state');
+              if (emptyState) {
+                emptyState.remove();
+                const title = form.closest('.comment-section').querySelector('.comment-section__title');
+                container = document.createElement('div');
+                container.className = 'comment-thread';
+                title.after(container);
+              }
+            }
+          }
+
+          if (container) {
+            // 插入新留言
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = data.comment_html;
+            const newComment = tempDiv.firstElementChild;
+            container.appendChild(newComment);
+
+            // 重新初始化回覆按鈕
+            initReplyToggles();
+            initAjaxComments();
+
+            // 清空表單
+            form.reset();
+
+            // 如果是回覆表單，隱藏它
+            if (form.classList.contains('comment-form--inline')) {
+              form.setAttribute('hidden', '');
+            }
+
+            // 滾動到新留言
+            newComment.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+
+          alert(data.message || '留言已送出!');
+        } else {
+          alert(data.error || '留言失敗');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('留言失敗，請稍後再試');
+      } finally {
+        if (submitBtn && originalText) {
+          submitBtn.textContent = originalText;
+          submitBtn.disabled = false;
+        }
+      }
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     initFavoriteToggle();
     initGarageToggle();
     initIntroEditor();
     initReplyToggles();
+    initAjaxRating();
+    initAjaxComments();
   });
 })();

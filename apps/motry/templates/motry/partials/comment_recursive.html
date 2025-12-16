@@ -1,0 +1,93 @@
+{% load motry_extras %}
+{# 遞歸渲染留言(最多三層) #}
+<article class="comment comment--depth-{{ comment.get_depth }}" id="comment-{{ comment.id }}">
+	<div class="comment__avatar" aria-hidden="true">
+		{% if comment.user and comment.user.username %}
+			{{ comment.user.username|first|upper }}
+		{% else %}
+			客
+		{% endif %}
+	</div>
+	<div class="comment__content">
+		<header class="comment__header">
+			<strong>{{ comment.user.username|default:"匿名車友" }}</strong>
+			<span>{{ comment.created_at|timesince }} 前</span>
+		</header>
+		<p class="comment__text">{{ comment.body_text }}</p>
+		{% if comment.image %}
+			<img
+				src="{{ comment.image.url }}"
+				alt="留言圖片"
+				class="comment__image"
+			/>
+		{% elif comment.image_url and not comment.image_url|is_default_image %}
+			<img
+				src="{{ comment.image_url }}"
+				alt="留言圖片"
+				class="comment__image"
+			/>
+		{% endif %}
+		<div class="comment__toolbar">
+			<span>{{ comment.created_at|timesince }} 前</span>
+			{% if user.is_authenticated and comment.can_reply %}
+				<button type="button" class="comment__reply-toggle" data-reply-toggle data-target="reply-form-{{ comment.id }}">回覆</button>
+			{% endif %}
+			{% if user.is_authenticated %}
+				{% if comment.user_id == user.id or user.is_staff %}
+					<form action="{% url 'comment_delete' comment.id %}" method="post" class="comment__delete-form">
+						{% csrf_token %}
+						<input type="hidden" name="next" value="{{ request.get_full_path }}" />
+						<button type="submit">刪除</button>
+					</form>
+				{% endif %}
+			{% endif %}
+		</div>
+
+		{# 遞歸渲染子回覆 #}
+		{% if comment.replies.all %}
+			<div class="comment__replies" data-replies-container="{{ comment.id }}">
+				{% for reply in comment.replies.all %}
+					{% include "motry/partials/comment_recursive.html" with comment=reply %}
+				{% endfor %}
+			</div>
+		{% else %}
+			<div class="comment__replies" data-replies-container="{{ comment.id }}"></div>
+		{% endif %}
+
+		{# 回覆表單(只在可回覆時顯示) #}
+		{% if user.is_authenticated and comment.can_reply %}
+			<form
+				action="#"
+				method="post"
+				enctype="multipart/form-data"
+				class="comment-form comment-form--inline"
+				id="reply-form-{{ comment.id }}"
+				data-comment-form
+				data-parent-id="{{ comment.id }}"
+				data-post-id="{{ post_id }}"
+				hidden
+			>
+				{% csrf_token %}
+				<input type="hidden" name="post" value="{{ post_id }}" />
+				<input type="hidden" name="parent" value="{{ comment.id }}" />
+				<div class="comment-form__fields">
+					<textarea
+						name="body_text"
+						rows="1"
+						placeholder="回覆 {{ comment.user.username|default:'車友' }}…"
+						class="comment-form__input"
+						required
+					></textarea>
+					<div class="comment-form__actions comment-form__actions--inline">
+						<label class="comment-form__upload" title="上傳圖片">
+							📷
+							<input type="file" name="image" accept="image/*" class="comment-form__file-input" />
+						</label>
+						<input type="url" name="image_url" placeholder="圖片網址（選填）" class="comment-form__url comment-form__url--inline" />
+						<button type="submit" class="comment-form__submit">送出</button>
+					</div>
+				</div>
+			</form>
+		{% endif %}
+	</div>
+</article>

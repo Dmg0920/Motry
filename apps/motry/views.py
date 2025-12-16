@@ -696,3 +696,78 @@ def _safe_redirect(request: HttpRequest, target: str | None, fallback: str) -> s
 	if target and url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
 		return target
 	return fallback
+
+# AJAX 端點
+@login_required
+@require_POST
+@ratelimit(key='user', rate='30/m', method='POST', block=True)
+def rate_vehicle_ajax(request: HttpRequest, id: int) -> JsonResponse:
+	"""AJAX 版本的車輛評分"""
+	vehicle = get_object_or_404(Vehicle, pk=id)
+	
+	if request.method != "POST":
+		return JsonResponse({"success": False, "error": "Invalid method"}, status=405)
+	
+	form = RatingForm(request.POST)
+	if not form.is_valid():
+		errors = form.errors.get("score", ["評分無效"])
+		return JsonResponse({"success": False, "error": str(errors[0])}, status=400)
+	
+	score = int(form.cleaned_data["score"])
+	_, created = Rating.objects.update_or_create(
+		vehicle=vehicle,
+		user=request.user,
+		defaults={"score": score},
+	)
+	
+	# 重新計算平均評分
+	stats = vehicle.ratings.aggregate(avg=Avg("score"), count=Count("id"))
+	
+	return JsonResponse({
+		"success": True,
+		"created": created,
+		"score": score,
+		"avg_rating": round(stats["avg"] or 0, 1),
+		"rating_count": stats["count"] or 0,
+		"message": "評分已更新!" if not created else "感謝你的評分!"
+	})
+
+
+@login_required
+@require_POST
+@ratelimit(key='user', rate='60/m', method='POST', block=True)
+def comment_create_ajax(request: HttpRequest) -> JsonResponse:
+	"""AJAX 版本的留言創建"""
+	form = CommentCreateForm(request.POST, request.FILES)
+	if not form.is_valid():
+		return JsonResponse({"success": False, "error": "留言失敗,請檢查輸入"}, status=400)
+	
+	comment: Comment = form.save(commit=False)
+	comment.user = request.user
+	
+	# 檢查父留言的深度限制
+	if comment.parent_id:
+		parent = Comment.objects.get(pk=comment.parent_id)
+		if not parent.can_reply():
+			return JsonResponse({"success": False, "error": "已達最大回覆深度(3層)"}, status=400)
+	
+	# 如果上傳了圖片檔案，優先使用檔案
+	if form.cleaned_data.get("image"):
+		comment.image = form.cleaned_data["image"]
+		comment.image_url = ""
+	comment.save()
+	
+	# 返回渲染後的留言 HTML
+	from django.template.loader import render_to_string
+	comment_html = render_to_string('motry/partials/comment_item.html', {
+		'comment': comment,
+		'user': request.user,
+	})
+	
+	return JsonResponse({
+		"success": True,
+		"comment_id": comment.id,
+		"comment_html": comment_html,
+		"parent_id": comment.parent_id,
+		"message": "留言已送出!"
+	})

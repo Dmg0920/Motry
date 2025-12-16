@@ -15,6 +15,9 @@ urlpatterns = [
 	path("post/<int:post_id>/delete/", views.post_delete, name="post_delete"),
 	path("comment/<int:comment_id>/delete/", views.comment_delete, name="comment_delete"),
 	path("like/toggle/<int:post_id>/", views.like_toggle, name="like_toggle"),
+	# AJAX 端點
+	path("ajax/vehicle/<int:id>/rate/", views.rate_vehicle_ajax, name="rate_vehicle_ajax"),
+	path("ajax/comment/new/", views.comment_create_ajax, name="comment_create_ajax"),
 	path("api/vehicles/", views.VehicleListAPIView.as_view(), name="api_vehicle_list"),
 	path("api/garage/add/<int:vehicle_id>/", views.api_garage_add, name="api_garage_add"),
 	path("api/garage/remove/<int:vehicle_id>/", views.api_garage_remove, name="api_garage_remove"),

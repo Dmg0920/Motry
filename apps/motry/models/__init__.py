@@ -102,7 +102,7 @@ class PostImage(models.Model):
 
 
 class Comment(models.Model):
-	"""單層留言（Post → Comment 一對多）。"""
+	"""巢狀留言（Post → Comment,支援最多三層）。"""
 
 	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="comments", db_index=True)
 	user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="comments", db_index=True)
@@ -112,13 +112,26 @@ class Comment(models.Model):
 	image = models.ImageField(upload_to="comments/%Y/%m/", blank=True, null=True)
 	created_at = models.DateTimeField(default=timezone.now, db_index=True)
 	is_deleted = models.BooleanField(default=False, db_index=True)
-	
+
 	@property
 	def image_url_or_file(self):
 		"""返回圖片URL或檔案URL"""
 		if self.image:
 			return self.image.url
 		return self.image_url if self.image_url else ""
+
+	def get_depth(self):
+		"""計算留言的層級深度"""
+		depth = 0
+		current = self.parent
+		while current is not None:
+			depth += 1
+			current = current.parent
+		return depth
+
+	def can_reply(self):
+		"""檢查是否可以回覆（最多三層，深度為0,1,2）"""
+		return self.get_depth() < 2
 
 	class Meta:
 		ordering = ["created_at", "id"]
