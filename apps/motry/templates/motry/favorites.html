@@ -1,0 +1,47 @@
+{% extends "core/base.html" %}
+{% load motry_extras %}
+{% block content %}
+<div class="page-container page-stack">
+	<section class="card card--hero">
+		<span class="badge badge--ghost">My Favorites</span>
+		<h2 class="hero-title">我的最愛</h2>
+		<p class="hero-subtitle">收藏任何你感興趣的車款，隨時回來查看規格與心得。</p>
+	</section>
+
+	<section class="card card--frost">
+		<div class="section-heading">
+			<div>
+				<h2>收藏清單</h2>
+				<p class="hero-subtitle hero-subtitle--compact">共 {{ favorites|length }} 台</p>
+			</div>
+		</div>
+		{% if favorites %}
+			<div class="vehicle-grid">
+				{% for favorite in favorites %}
+					<div class="vehicle-grid__card">
+						<div class="vehicle-grid__media">
+							{% vehicle_showcase_image favorite.vehicle as favorite_vehicle_photo %}
+							{% if favorite_vehicle_photo %}
+								<img src="{{ favorite_vehicle_photo }}" alt="{{ favorite.vehicle }}" data-fallback="{% vehicle_fallback_image favorite.vehicle.brand favorite.vehicle.model %}" />
+							{% else %}
+								<img src="{% vehicle_fallback_image favorite.vehicle.brand favorite.vehicle.model %}" alt="{{ favorite.vehicle }}" />
+							{% endif %}
+						</div>
+						<div class="vehicle-grid__body">
+							<strong>{{ favorite.vehicle.brand }} {{ favorite.vehicle.model }}</strong>
+							<small>收藏於 {{ favorite.created_at|date:"Y-m-d" }}</small>
+						</div>
+						<div class="vehicle-grid__actions">
+							<a href="{% url 'vehicle_detail' favorite.vehicle_id %}" class="button">查看車款</a>
+						</div>
+					</div>
+				{% endfor %}
+			</div>
+		{% else %}
+			<div class="empty-state-container">
+				<p class="empty-state">還沒有收藏任何車輛，快到車款頁的「加入我的最愛」試試！</p>
+			</div>
+		{% endif %}
+	</section>
+</div>
+{% endblock %}

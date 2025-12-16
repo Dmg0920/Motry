@@ -1,6 +1,6 @@
 # Motry
 
-以 Django MTV 與 SQLite 實作的車款搜尋與心得分享應用，涵蓋課程第 1～12 週的核心內容（Git、環境、MTV、CRUD、Auth、AJAX、Redis、WebSocket）。Celery 留待未來擴充，不含任何任務/排程設定。
+以 Django MTV 與 SQLite 實作的車款搜尋與心得分享應用，涵蓋課程第 1～12 週的核心內容（Git、環境、MTV、CRUD、Auth、AJAX、Redis、WebSocket）。已加入 Week 13 的 Celery 背景任務示範（匯出車輛 CSV），尚未設定 Beat 排程。
 
 ## 環境建置與 Git 流程（Week 1–2）
 ```bash
@@ -41,7 +41,8 @@ python manage.py runserver
 - 首頁與搜尋：`/`、`/search?query=&type=&brand=`
 - 車款頁：`/vehicle/<id>/`（規格、圖集、心得流、評分）
 - 發文 / 留言 / 按讚：`/post/new`、`/comment/new`、`/like/toggle/<post_id>/`
-- 我的車庫（閱讀清單概念）：`/garage/`
+- 我的車庫（擁有/收藏車輛，可寫備註）：`/garage/`
+- 我的最愛（快速追蹤喜歡的車款）：`/favorites/`
 - Auth：`/auth/register`、`/auth/login`、`/auth/logout`
 
 ## 資料庫設計概覽（Week 5–6）
@@ -51,16 +52,18 @@ python manage.py runserver
 - `Vehicle` ⟷ `Post` ⟷ `Comment`：一對多鏈
 - `Post` ⟷ `Like`：一對多（unique_together 限制每人一讚）
 - `Vehicle` ⟷ `Rating`：一對多（每人一分）
-- `User` ⟷ `UserVehicle`：一對多（閱讀清單/收藏車庫）
+- `User` ⟷ `UserVehicle`：一對多（我的車庫/閱讀清單概念）
+- `User` ⟷ `FavoriteVehicle`：一對多（我的最愛清單）
 
-## Auth 與「我的車庫」（Week 10）
+## Auth、我的車庫與我的最愛（Week 10）
 - `AUTH_USER_MODEL = accounts.User`（繼承 `AbstractUser`）。
 - 登入/註冊/登出路由已配置。
-- `UserVehicle` 對應課程的「閱讀清單」實作：收藏車輛、備註、圖片上傳，並在車款頁透過 AJAX 加入/移除。
+- `UserVehicle` 對應課程的「閱讀清單」實作：收藏車輛、備註、圖片上傳，並在車款頁或 `我的車庫` 頁面管理。
+- `FavoriteVehicle` 提供輕量的「我的最愛」清單，僅標記喜歡的車款，車款頁可 AJAX 加入/移除，並在 `/favorites/` 檢視。
 
 ## CRUD 與模板（Week 7）
 - `apps/motry/views.py` 含搜尋、車款詳情、發文、留言、刪文/刪留言、評分、按讚等流程，搭配 Django messages 呈現操作結果。
-- 模板繼承 `core/base.html`，含導航、品牌篩選、訊息區塊；`vehicle_detail.html` 內建車庫按鈕與心得列表。
+- 模板繼承 `core/base.html`，含導航、品牌篩選、訊息區塊；`vehicle_detail.html` 同時提供「我的最愛」與「我的車庫」按鈕。
 
 ## 靜態檔與部署（Week 9）
 - `STATIC_ROOT = staticfiles`、`MEDIA_ROOT = media`，Whitenoise 已啟用。
@@ -69,9 +72,12 @@ python manage.py runserver
 - 收集靜態檔：`python manage.py collectstatic`
 
 ## API 範例（Week 11）
-- AJAX 車庫：
+- AJAX 我的車庫：
   - `POST /api/garage/add/<vehicle_id>/` → `{"success": true, "in_garage": true, "user_vehicle_id": ...}`
   - `POST /api/garage/remove/<vehicle_id>/` → `{"success": true, "in_garage": false}`
+- AJAX 我的最愛：
+  - `POST /api/favorites/add/<vehicle_id>/` → `{"success": true, "favorite": true}`
+  - `POST /api/favorites/remove/<vehicle_id>/` → `{"success": true, "favorite": false}`
 - Read-only JSON：
   - `GET /api/vehicles/`
   - 範例回應：
@@ -126,13 +132,13 @@ python manage.py sync_carquery --timeout 60 --retries 5
 - Week 5–6：資料庫設計 → README「資料庫設計概覽」、`apps/motry/models/`。
 - Week 7：CRUD → 搜尋、車款詳情、貼文/留言/評分/按讚、模板與 messages。
 - Week 9：靜態檔與部署 → Whitenoise/`STATIC_ROOT`/`collectstatic` 說明。
-- Week 10：Auth & 閱讀清單 → 自訂 User + 車庫（UserVehicle）。
-- Week 11：AJAX & API → 車庫 API、`VehicleListAPIView`、前端 `sendRequest`/`vehicle_detail.js`。
+- Week 10：Auth & 閱讀清單 → 自訂 User + 我的車庫（UserVehicle）與我的最愛（FavoriteVehicle）。
+- Week 11：AJAX & API → 車庫與最愛 API、`VehicleListAPIView`、前端 `sendRequest`/`vehicle_detail.js`。
 - Week 12：Redis & WebSocket → 品牌快取、Redis demo 腳本、WebSocket 新貼文通知。
-- Week 13：Celery → 未來工作（未實作，僅 README 提及）。
+- Week 13：Celery → `apps/motry/tasks.py` 匯出車輛 CSV（基礎任務，未含 Beat 排程）。
 
 ## 未來工作
-- Celery 背景任務與排程（尚未導入設定/程式）。
+- Celery Beat 排程、更多任務（目前僅匯出 CSV，未啟用排程）。
 - 可選：整合 `django-allauth` Google SSO（需設定 OAuth client）。
 
 ## License

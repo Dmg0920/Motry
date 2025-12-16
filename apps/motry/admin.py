@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Vehicle, VehicleImage, Post, PostImage, Comment, Tag, PostTag, Like, Rating, UserVehicle
+from .models import Vehicle, VehicleImage, Post, PostImage, Comment, Tag, PostTag, Like, Rating, UserVehicle, FavoriteVehicle
 
 
 class VehicleImageInline(admin.TabularInline):
@@ -62,3 +62,9 @@ class RatingAdmin(admin.ModelAdmin):
 class UserVehicleAdmin(admin.ModelAdmin):
 	list_display = ("id", "user", "vehicle", "alias", "created_at")
 	search_fields = ("user__username", "vehicle__brand", "vehicle__model", "alias")
+
+
+@admin.register(FavoriteVehicle)
+class FavoriteVehicleAdmin(admin.ModelAdmin):
+	list_display = ("id", "user", "vehicle", "created_at")
+	search_fields = ("user__username", "vehicle__brand", "vehicle__model")

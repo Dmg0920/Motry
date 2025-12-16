@@ -62,14 +62,13 @@
 				{% for garage in user_vehicles %}
 					<div class="vehicle-grid__card garage-card">
 						<div class="vehicle-grid__media">
+							{% vehicle_showcase_image garage.vehicle as garage_vehicle_photo %}
 							{% if garage.image %}
 								<img src="{{ garage.image.url }}" alt="{{ garage.alias|default:garage.vehicle }}" data-fallback="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}" />
 							{% elif garage.image_url and not garage.image_url|is_default_image %}
 								<img src="{{ garage.image_url }}" alt="{{ garage.alias|default:garage.vehicle }}" data-fallback="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}" />
-							{% elif garage.vehicle.images.first and not garage.vehicle.images.first.image_url|is_default_image %}
-								<img src="{{ garage.vehicle.images.first.image_url }}" alt="{{ garage.vehicle }}" data-fallback="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}" />
-							{% elif garage.vehicle.cover_url and not garage.vehicle.cover_url|is_default_image %}
-								<img src="{{ garage.vehicle.cover_url }}" alt="{{ garage.vehicle }}" data-fallback="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}" />
+							{% elif garage_vehicle_photo %}
+								<img src="{{ garage_vehicle_photo }}" alt="{{ garage.vehicle }}" data-fallback="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}" />
 							{% else %}
 								<img src="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}" alt="{{ garage.vehicle }}" />
 							{% endif %}

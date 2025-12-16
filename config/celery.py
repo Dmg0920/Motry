@@ -7,7 +7,11 @@ import os
 from celery import Celery
 
 # 設定 Django settings module
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
+# 優先使用環境變數 DJANGO_SETTINGS_MODULE，沒有時預設為開發設定
+os.environ.setdefault(
+    "DJANGO_SETTINGS_MODULE",
+    os.getenv("DJANGO_SETTINGS_MODULE", "config.settings.development"),
+)
 
 # 建立 Celery app
 app = Celery('config')

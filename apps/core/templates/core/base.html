@@ -6,12 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{% block title %}Motry{% endblock %}</title>
 
-    <link rel="stylesheet" href="{% static 'core/css/global.css' %}" />
-    <link rel="stylesheet" href="{% static 'motry/css/app.css' %}" />
+    <link rel="stylesheet" href="{% static 'core/css/global.css' %}?v=20250304" />
+    <link rel="stylesheet" href="{% static 'motry/css/app.css' %}?v=20250304" />
 
     {% block extra_css %}{% endblock %}
   </head>
   <body class="site-body">
+    <div class="site-backdrop" aria-hidden="true">
+      <span class="site-backdrop__orb site-backdrop__orb--one"></span>
+      <span class="site-backdrop__orb site-backdrop__orb--two"></span>
+      <span class="site-backdrop__orb site-backdrop__orb--three"></span>
+    </div>
     <header class="site-header">
       <div class="page-container nav-bar">
         <div class="nav-left">
@@ -21,6 +26,7 @@
             <a href="{% url 'search' %}" class="nav-link {% if request.resolver_match.url_name == 'search' %}active{% endif %}">搜尋車款</a>
             {% if user.is_authenticated %}
               <a href="{% url 'user_garage' %}" class="nav-link {% if request.resolver_match.url_name == 'user_garage' %}active{% endif %}">我的車庫</a>
+              <a href="{% url 'user_favorites' %}" class="nav-link {% if request.resolver_match.url_name == 'user_favorites' %}active{% endif %}">我的最愛</a>
               <a href="{% url 'post_create' %}" class="nav-link {% if request.resolver_match.url_name == 'post_create' %}active{% endif %}">發表心得</a>
             {% else %}
               <a href="{% url 'register' %}" class="nav-link {% if request.resolver_match.url_name == 'register' %}active{% endif %}">加入社群</a>
@@ -78,9 +84,9 @@
     </main>
 
     <script type="application/json" id="brand-map-data">{{ brand_map_json|default:"{}" }}</script>
-    <script src="{% static 'core/js/global.js' %}"></script>
-    <script src="{% static 'core/js/utils.js' %}"></script>
-    <script src="{% static 'motry/js/notifications.js' %}"></script>
+    <script src="{% static 'core/js/global.js' %}?v=20250304"></script>
+    <script src="{% static 'core/js/utils.js' %}?v=20250304"></script>
+    <script src="{% static 'motry/js/notifications.js' %}?v=20250304"></script>
     {% block extra_js %}{% endblock %}
   </body>
 </html>

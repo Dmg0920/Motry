@@ -117,15 +117,10 @@
 				{% for vehicle in recommended_vehicles %}
 					<a href="/vehicle/{{ vehicle.id }}/" class="recommended-card">
 						<div class="recommended-card__media">
-							{% if vehicle.images.first and not vehicle.images.first.image_url|is_default_image %}
+							{% vehicle_showcase_image vehicle as recommended_photo %}
+							{% if recommended_photo %}
 								<img
-									src="{{ vehicle.images.first.image_url }}"
-									alt="{{ vehicle.brand }} {{ vehicle.model }}"
-									data-fallback="{% vehicle_fallback_image vehicle.brand vehicle.model %}"
-								/>
-							{% elif vehicle.cover_url and not vehicle.cover_url|is_default_image %}
-								<img
-									src="{{ vehicle.cover_url }}"
+									src="{{ recommended_photo }}"
 									alt="{{ vehicle.brand }} {{ vehicle.model }}"
 									data-fallback="{% vehicle_fallback_image vehicle.brand vehicle.model %}"
 								/>
@@ -190,23 +185,20 @@
 									alt="{{ garage.alias|default:garage.vehicle }}"
 									data-fallback="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}"
 								/>
-							{% elif garage.vehicle.images.first and not garage.vehicle.images.first.image_url|is_default_image %}
-								<img
-									src="{{ garage.vehicle.images.first.image_url }}"
-									alt="{{ garage.vehicle }}"
-									data-fallback="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}"
-								/>
-							{% elif garage.vehicle.cover_url and not garage.vehicle.cover_url|is_default_image %}
-								<img
-									src="{{ garage.vehicle.cover_url }}"
-									alt="{{ garage.vehicle }}"
-									data-fallback="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}"
-								/>
 							{% else %}
-								<img
-									src="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}"
-									alt="{{ garage.vehicle }}"
-								/>
+								{% vehicle_showcase_image garage.vehicle as latest_vehicle_photo %}
+								{% if latest_vehicle_photo %}
+									<img
+										src="{{ latest_vehicle_photo }}"
+										alt="{{ garage.vehicle }}"
+										data-fallback="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}"
+									/>
+								{% else %}
+									<img
+										src="{% vehicle_fallback_image garage.vehicle.brand garage.vehicle.model %}"
+										alt="{{ garage.vehicle }}"
+									/>
+								{% endif %}
 							{% endif %}
 						</div>
 						<div class="vehicle-grid__body">

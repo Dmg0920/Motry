@@ -1,6 +1,9 @@
 from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.utils import timezone
+
+from apps.motry.utils import is_placeholder_image
 
 
 class Vehicle(models.Model):
@@ -29,12 +32,18 @@ class Vehicle(models.Model):
 	def __str__(self) -> str:
 		return f"{self.brand} {self.model} ({self.generation})" if self.generation else f"{self.brand} {self.model}"
 
+	def get_gallery_images(self):
+		if not hasattr(self, "_gallery_images_cache"):
+			self._gallery_images_cache = [img for img in self.images.all() if getattr(img, "has_real_image", False)]
+		return self._gallery_images_cache
+
 
 class VehicleImage(models.Model):
 	"""車輛圖片（外鍵一對多示範）。"""
 
-	vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="images")
-	image_url = models.CharField(max_length=255)
+	vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="images", db_index=True)
+	image_url = models.CharField(max_length=255, blank=True)
+	image = models.ImageField(upload_to="vehicles/%Y/%m/", blank=True, null=True)
 	sort_order = models.SmallIntegerField(null=True, blank=True)
 
 	class Meta:
@@ -43,16 +52,29 @@ class VehicleImage(models.Model):
 	def __str__(self) -> str:
 		return f"{self.vehicle} image #{self.id}"
 
+	@property
+	def image_url_or_file(self):
+		if self.image:
+			return self.image.url
+		return self.image_url or ""
+
+	@property
+	def has_real_image(self) -> bool:
+		if self.image:
+			return True
+		return bool(self.image_url and not is_placeholder_image(self.image_url))
+
 
 class Post(models.Model):
 	"""車輛心得貼文（Week 7 CRUD 示範）。"""
 
-	vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="posts")
-	user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="posts")
+	vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="posts", db_index=True)
+	user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="posts", db_index=True)
 	body_text = models.TextField(max_length=2000)
 	user_vehicle = models.ForeignKey("UserVehicle", null=True, blank=True, on_delete=models.SET_NULL, related_name="posts")
-	created_at = models.DateTimeField(default=timezone.now)
+	created_at = models.DateTimeField(default=timezone.now, db_index=True)
 	updated_at = models.DateTimeField(auto_now=True)
+	is_deleted = models.BooleanField(default=False, db_index=True)
 
 	class Meta:
 		ordering = ["-created_at"]
@@ -64,7 +86,7 @@ class Post(models.Model):
 class PostImage(models.Model):
 	"""貼文附圖。"""
 
-	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="images")
+	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="images", db_index=True)
 	image_url = models.CharField(max_length=255, blank=True)
 	image = models.ImageField(upload_to="posts/%Y/%m/", blank=True, null=True)
 
@@ -82,12 +104,14 @@ class PostImage(models.Model):
 class Comment(models.Model):
 	"""單層留言（Post → Comment 一對多）。"""
 
-	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="comments")
-	user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="comments")
+	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="comments", db_index=True)
+	user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="comments", db_index=True)
+	parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.CASCADE, related_name="replies")
 	body_text = models.TextField()
 	image_url = models.URLField(blank=True)
 	image = models.ImageField(upload_to="comments/%Y/%m/", blank=True, null=True)
-	created_at = models.DateTimeField(default=timezone.now)
+	created_at = models.DateTimeField(default=timezone.now, db_index=True)
+	is_deleted = models.BooleanField(default=False, db_index=True)
 	
 	@property
 	def image_url_or_file(self):
@@ -118,8 +142,8 @@ class Tag(models.Model):
 class PostTag(models.Model):
 	"""Post-Tag 中介表（顯式 through model）。"""
 
-	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="post_tags")
-	tag = models.ForeignKey(Tag, on_delete=models.CASCADE, related_name="tag_posts")
+	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="post_tags", db_index=True)
+	tag = models.ForeignKey(Tag, on_delete=models.CASCADE, related_name="tag_posts", db_index=True)
 
 	class Meta:
 		unique_together = ("post", "tag")
@@ -131,8 +155,8 @@ class PostTag(models.Model):
 class Like(models.Model):
 	"""按讚紀錄（Post 一對多，每人限制一筆）。"""
 
-	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="likes")
-	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="likes")
+	post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="likes", db_index=True)
+	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="likes", db_index=True)
 	created_at = models.DateTimeField(default=timezone.now)
 
 	class Meta:
@@ -145,9 +169,9 @@ class Like(models.Model):
 class Rating(models.Model):
 	"""車輛評分（Vehicle 一對多，使用 unique_together 限制一人一分）。"""
 
-	vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="ratings")
-	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="ratings")
-	score = models.SmallIntegerField()
+	vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="ratings", db_index=True)
+	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="ratings", db_index=True)
+	score = models.SmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
 	created_at = models.DateTimeField(default=timezone.now)
 
 	class Meta:
@@ -158,15 +182,15 @@ class Rating(models.Model):
 
 
 class UserVehicle(models.Model):
-	"""使用者收藏車庫（Week 10 閱讀清單概念對應）。"""
+	"""使用者車庫收藏（Week 10 閱讀清單概念對應）。"""
 
-	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="user_vehicles")
-	vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="user_vehicles")
+	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="user_vehicles", db_index=True)
+	vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="user_vehicles", db_index=True)
 	alias = models.CharField(max_length=100, blank=True)
 	notes = models.TextField(blank=True)
 	image_url = models.URLField(blank=True)
 	image = models.ImageField(upload_to="user_vehicles/%Y/%m/", blank=True, null=True)
-	created_at = models.DateTimeField(default=timezone.now)
+	created_at = models.DateTimeField(default=timezone.now, db_index=True)
 	
 	@property
 	def image_url_or_file(self):
@@ -181,3 +205,57 @@ class UserVehicle(models.Model):
 
 	def __str__(self) -> str:
 		return f"{self.user} - {self.alias or self.vehicle}"
+
+
+class FavoriteVehicle(models.Model):
+	"""使用者我的最愛清單（與車庫不同，僅標記喜歡的車款）。"""
+
+	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="favorite_vehicles", db_index=True)
+	vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="favorited_by", db_index=True)
+	created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+	class Meta:
+		unique_together = ("user", "vehicle")
+		ordering = ["-created_at"]
+
+	def __str__(self) -> str:
+		return f"{self.user} ♥ {self.vehicle}"
+
+
+class Notification(models.Model):
+	"""使用者通知（持久化 WebSocket 通知，讓離線用戶也能收到）。"""
+
+	class NotificationType(models.TextChoices):
+		NEW_POST = "new_post", "新貼文"
+		NEW_COMMENT = "new_comment", "新留言"
+		NEW_LIKE = "new_like", "新按讚"
+		SYSTEM = "system", "系統通知"
+
+	user = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.CASCADE,
+		related_name="notifications",
+		db_index=True,
+	)
+	notification_type = models.CharField(
+		max_length=20,
+		choices=NotificationType.choices,
+		default=NotificationType.SYSTEM,
+		db_index=True,
+	)
+	title = models.CharField(max_length=100)
+	message = models.TextField(max_length=500)
+	related_post = models.ForeignKey(
+		Post, null=True, blank=True, on_delete=models.CASCADE, related_name="notifications"
+	)
+	related_vehicle = models.ForeignKey(
+		Vehicle, null=True, blank=True, on_delete=models.CASCADE, related_name="notifications"
+	)
+	is_read = models.BooleanField(default=False, db_index=True)
+	created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+	class Meta:
+		ordering = ["-created_at"]
+
+	def __str__(self) -> str:
+		return f"Notification for {self.user}: {self.title}"

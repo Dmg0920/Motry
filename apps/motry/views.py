@@ -5,25 +5,105 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, Q, Prefetch
+from django.db import transaction
+from django.db.models import Avg, Count, Max, Q, Prefetch
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
+from django.views.decorators.http import require_POST
+from django_ratelimit.decorators import ratelimit
 from .forms import (
 	PostCreateForm,
 	CommentCreateForm,
 	VehicleCreateForm,
 	UserVehicleForm,
 	RatingForm,
-	BRANDS_BY_TYPE,
+	VehicleIntroForm,
+	VehiclePhotoForm,
 )
-from .models import Vehicle, VehicleImage, Post, PostImage, Comment, Tag, PostTag, Like, UserVehicle, Rating
+from .models import (
+	Vehicle,
+	Post,
+	PostImage,
+	Comment,
+	PostTag,
+	Like,
+	UserVehicle,
+	FavoriteVehicle,
+	Rating,
+)
+from .utils import is_placeholder_image
 
 
 VEHICLE_LIST_CACHE_KEY = "api:vehicle_list"
 VEHICLE_LIST_CACHE_TIMEOUT = 60  # seconds
+
+
+def _vehicle_detail_queryset():
+	return Vehicle.objects.annotate(
+		avg_rating=Avg("ratings__score"),
+		rating_count=Count("ratings"),
+	).prefetch_related(
+		"images",
+		Prefetch(
+			"posts",
+			queryset=Post.objects.filter(is_deleted=False)
+			.select_related("vehicle", "user")
+			.prefetch_related(
+				"images",
+				"post_tags__tag",
+				Prefetch(
+					"comments",
+					queryset=Comment.objects.filter(is_deleted=False)
+					.select_related("user")
+					.prefetch_related("replies__user")
+					.order_by("created_at"),
+				),
+			)
+			.annotate(num_likes=Count("likes"), num_comments=Count("comments"))
+			.order_by("-created_at"),
+		),
+	)
+
+
+def _build_vehicle_detail_context(
+	request: HttpRequest,
+	vehicle: Vehicle,
+	intro_form: VehicleIntroForm | None = None,
+	photo_form: VehiclePhotoForm | None = None,
+) -> dict:
+	post_form = PostCreateForm(initial={"vehicle_id": vehicle.id}) if request.user.is_authenticated else None
+	comment_form = CommentCreateForm() if request.user.is_authenticated else None
+
+	user_rating = None
+	rating_form = None
+	if request.user.is_authenticated:
+		user_rating = Rating.objects.filter(vehicle=vehicle, user=request.user).first()
+		initial_score = str(user_rating.score) if user_rating else ""
+		rating_form = RatingForm(initial={"score": initial_score})
+
+	user_vehicle_entry = None
+	favorite_entry = None
+	if request.user.is_authenticated:
+		user_vehicle_entry = UserVehicle.objects.filter(user=request.user, vehicle=vehicle).first()
+		favorite_entry = FavoriteVehicle.objects.filter(user=request.user, vehicle=vehicle).first()
+
+	gallery_images = vehicle.get_gallery_images()
+
+	return {
+		"vehicle": vehicle,
+		"post_form": post_form,
+		"comment_form": comment_form,
+		"user_rating": user_rating,
+		"rating_form": rating_form,
+		"user_vehicle_entry": user_vehicle_entry,
+		"favorite_entry": favorite_entry,
+		"intro_form": intro_form or VehicleIntroForm(instance=vehicle),
+		"photo_form": photo_form or VehiclePhotoForm(),
+		"gallery_images": gallery_images,
+	}
 
 
 def search(request: HttpRequest) -> HttpResponse:
@@ -93,48 +173,9 @@ def search(request: HttpRequest) -> HttpResponse:
 
 
 def vehicle_detail(request: HttpRequest, id: int) -> HttpResponse:
-	vehicle = get_object_or_404(
-		Vehicle.objects.annotate(
-			avg_rating=Avg("ratings__score"),
-			rating_count=Count("ratings"),
-		).prefetch_related(
-			"images",
-			Prefetch(
-				"posts",
-				queryset=Post.objects.select_related("vehicle", "user")
-				.prefetch_related("images", "comments", "post_tags__tag")
-				.annotate(num_likes=Count("likes"), num_comments=Count("comments"))
-				.order_by("-created_at"),
-			),
-		),
-		pk=id,
-	)
-
-	post_form = PostCreateForm(initial={"vehicle_id": vehicle.id}) if request.user.is_authenticated else None
-	comment_form = CommentCreateForm() if request.user.is_authenticated else None
-	user_rating = None
-	rating_form = None
-	if request.user.is_authenticated:
-		user_rating = Rating.objects.filter(vehicle=vehicle, user=request.user).first()
-		initial_score = str(user_rating.score) if user_rating else ""
-		rating_form = RatingForm(initial={"score": initial_score})
-
-	user_vehicle_entry = None
-	if request.user.is_authenticated:
-		user_vehicle_entry = UserVehicle.objects.filter(user=request.user, vehicle=vehicle).first()
-
-	return render(
-		request,
-		"motry/vehicle_detail.html",
-		{
-			"vehicle": vehicle,
-			"post_form": post_form,
-			"comment_form": comment_form,
-			"user_rating": user_rating,
-			"rating_form": rating_form,
-			"user_vehicle_entry": user_vehicle_entry,
-		},
-	)
+	vehicle = get_object_or_404(_vehicle_detail_queryset(), pk=id)
+	context = _build_vehicle_detail_context(request, vehicle)
+	return render(request, "motry/vehicle_detail.html", context)
 
 
 @login_required
@@ -157,6 +198,44 @@ def vehicle_create(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+def vehicle_intro_update(request: HttpRequest, id: int) -> HttpResponse:
+	if request.method != "POST":
+		return redirect("vehicle_detail", id=id)
+
+	vehicle = get_object_or_404(_vehicle_detail_queryset(), pk=id)
+	form = VehicleIntroForm(request.POST, instance=vehicle)
+	if form.is_valid():
+		form.save()
+		messages.success(request, "感謝補充！車輛簡介已更新，稍後就能在頁面上看到變更。")
+		return redirect("vehicle_detail", id=id)
+
+	context = _build_vehicle_detail_context(request, vehicle, intro_form=form)
+	return render(request, "motry/vehicle_detail.html", context)
+
+
+@login_required
+def vehicle_photo_upload(request: HttpRequest, id: int) -> HttpResponse:
+	if request.method != "POST":
+		return redirect("vehicle_detail", id=id)
+
+	vehicle = get_object_or_404(_vehicle_detail_queryset(), pk=id)
+	form = VehiclePhotoForm(request.POST, request.FILES)
+	if form.is_valid():
+		photo = form.save(commit=False)
+		photo.vehicle = vehicle
+		if photo.sort_order is None:
+			next_order = vehicle.images.aggregate(Max("sort_order")).get("sort_order__max") or 0
+			photo.sort_order = next_order + 1
+		photo.save()
+		messages.success(request, "已收到車輛美照！感謝你的分享。")
+		return redirect("vehicle_detail", id=id)
+
+	context = _build_vehicle_detail_context(request, vehicle, photo_form=form)
+	return render(request, "motry/vehicle_detail.html", context)
+
+
+@login_required
+@ratelimit(key='user', rate='10/m', method='POST', block=True)
 def post_create(request: HttpRequest) -> HttpResponse:
 	user = request.user
 	user_vehicles = list(user.user_vehicles.select_related("vehicle").order_by("vehicle__brand", "vehicle__model"))
@@ -224,24 +303,27 @@ def post_create(request: HttpRequest) -> HttpResponse:
 	if user_vehicle_clean:
 		user_vehicle = next((uv for uv in user_vehicles if uv.id == user_vehicle_clean), None)
 
-	post = Post.objects.create(
-		vehicle=vehicle,
-		user=user,
-		user_vehicle=user_vehicle,
-		body_text=form.cleaned_data["body_text"],
-	)
+	# 使用交易保護，確保貼文、標籤、圖片都成功建立
+	with transaction.atomic():
+		post = Post.objects.create(
+			vehicle=vehicle,
+			user=user,
+			user_vehicle=user_vehicle,
+			body_text=form.cleaned_data["body_text"],
+		)
 
-	for tag in form.cleaned_data["tags"]:
-		PostTag.objects.create(post=post, tag=tag)
+		for tag in form.cleaned_data["tags"]:
+			PostTag.objects.create(post=post, tag=tag)
 
-	for img_file in form.images():
-		PostImage.objects.create(post=post, image=img_file)
+		for img_file in form.images():
+			PostImage.objects.create(post=post, image=img_file)
 
 	messages.success(request, "貼文已建立！")
 	return redirect("vehicle_detail", id=vehicle.id)
 
 
 @login_required
+@ratelimit(key='user', rate='20/m', method='POST', block=True)
 def comment_create(request: HttpRequest) -> HttpResponse:
 	if request.method != "POST":
 		return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
@@ -263,44 +345,45 @@ def comment_create(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def post_delete(request: HttpRequest, post_id: int) -> HttpResponse:
 	post = get_object_or_404(Post.objects.select_related("vehicle", "user"), pk=post_id)
 	fallback = reverse("vehicle_detail", args=[post.vehicle_id])
 	redirect_candidate = request.POST.get("next") or request.META.get("HTTP_REFERER")
 	redirect_url = _safe_redirect(request, redirect_candidate, fallback)
 
-	if request.method != "POST":
-		return HttpResponseRedirect(redirect_url)
-
 	if not (post.user_id == request.user.id or request.user.is_staff):
 		messages.error(request, "沒有權限刪除這篇貼文。")
 		return HttpResponseRedirect(redirect_url)
 
-	post.delete()
+	# 軟刪除：標記為已刪除而非真正刪除
+	post.is_deleted = True
+	post.save(update_fields=["is_deleted"])
 	messages.success(request, "貼文已刪除。")
 	return HttpResponseRedirect(redirect_url)
 
 
 @login_required
+@require_POST
 def comment_delete(request: HttpRequest, comment_id: int) -> HttpResponse:
 	comment = get_object_or_404(Comment.objects.select_related("post", "user"), pk=comment_id)
 	fallback = reverse("vehicle_detail", args=[comment.post.vehicle_id])
 	redirect_candidate = request.POST.get("next") or request.META.get("HTTP_REFERER")
 	redirect_url = _safe_redirect(request, redirect_candidate, fallback)
 
-	if request.method != "POST":
-		return HttpResponseRedirect(redirect_url)
-
 	if not (comment.user_id == request.user.id or request.user.is_staff):
 		messages.error(request, "沒有權限刪除這則留言。")
 		return HttpResponseRedirect(redirect_url)
 
-	comment.delete()
+	# 軟刪除：標記為已刪除而非真正刪除
+	comment.is_deleted = True
+	comment.save(update_fields=["is_deleted"])
 	messages.success(request, "留言已刪除。")
 	return HttpResponseRedirect(redirect_url)
 
 
 @login_required
+@ratelimit(key='user', rate='30/m', method='POST', block=True)
 def rate_vehicle(request: HttpRequest, id: int) -> HttpResponse:
 	vehicle = get_object_or_404(Vehicle, pk=id)
 	fallback = reverse("vehicle_detail", args=[vehicle.id])
@@ -317,7 +400,7 @@ def rate_vehicle(request: HttpRequest, id: int) -> HttpResponse:
 		return HttpResponseRedirect(redirect_url)
 
 	score = int(form.cleaned_data["score"])
-	rating, created = Rating.objects.update_or_create(
+	_, created = Rating.objects.update_or_create(
 		vehicle=vehicle,
 		user=request.user,
 		defaults={"score": score},
@@ -327,6 +410,7 @@ def rate_vehicle(request: HttpRequest, id: int) -> HttpResponse:
 
 
 @login_required
+@ratelimit(key='user', rate='60/m', method=['GET', 'POST'], block=True)
 def like_toggle(request: HttpRequest, post_id: int) -> HttpResponse:
 	post = get_object_or_404(Post, pk=post_id)
 	existing = Like.objects.filter(post=post, user=request.user).first()
@@ -339,6 +423,7 @@ def like_toggle(request: HttpRequest, post_id: int) -> HttpResponse:
 	return HttpResponseRedirect(request.META.get("HTTP_REFERER", reverse("vehicle_detail", args=[post.vehicle_id])))
 
 
+@ratelimit(key='ip', rate='5/h', method='POST', block=True)
 def register(request: HttpRequest) -> HttpResponse:
 	if request.user.is_authenticated:
 		return redirect("core:home")
@@ -401,77 +486,162 @@ def user_vehicle_delete(request: HttpRequest, user_vehicle_id: int) -> HttpRespo
 	return redirect("user_garage")
 
 
-@login_required
-def api_garage_add(request: HttpRequest, vehicle_id: int) -> JsonResponse:
+def _api_collection_add(
+	request: HttpRequest,
+	vehicle_id: int,
+	model_class,
+	collection_name: str,
+	state_key: str,
+	id_key: str,
+) -> JsonResponse:
 	"""
-	Week 11 AJAX 範例：加入收藏車庫。
-	- Method: POST
-	- URL: /api/garage/add/<vehicle_id>/
-	- Response: {"success": bool, "message": str, "in_garage": bool, "user_vehicle_id": int}
-	- Status: 201 建立成功；200 已存在；405 方法錯誤；404 找不到車輛。
+	通用的「加入收藏」API 處理函式。
+	減少 garage/favorite add 的重複程式碼。
 	"""
-	if request.method != "POST":
-		return JsonResponse({"success": False, "message": "僅支援 POST 方法。"}, status=405)
-
 	vehicle = get_object_or_404(Vehicle, pk=vehicle_id)
-	existing = UserVehicle.objects.filter(user=request.user, vehicle=vehicle).first()
+	existing = model_class.objects.filter(user=request.user, vehicle=vehicle).first()
 	if existing:
 		return JsonResponse(
 			{
 				"success": False,
-				"message": f"{vehicle} 已在你的車庫中。",
-				"in_garage": True,
-				"user_vehicle_id": existing.id,
+				"message": f"{vehicle} 已在你的{collection_name}中。",
+				state_key: True,
+				id_key: existing.id,
 			},
 			status=200,
 		)
 
-	user_vehicle = UserVehicle.objects.create(user=request.user, vehicle=vehicle)
-	messages.success(request, f"已將 {vehicle} 加入我的車庫！")
+	item = model_class.objects.create(user=request.user, vehicle=vehicle)
 	return JsonResponse(
 		{
 			"success": True,
-			"message": f"已將 {vehicle} 加入我的車庫！",
-			"in_garage": True,
-			"user_vehicle_id": user_vehicle.id,
+			"message": f"已將 {vehicle} 加入{collection_name}！",
+			state_key: True,
+			id_key: item.id,
 		},
 		status=201,
 	)
 
 
-@login_required
-def api_garage_remove(request: HttpRequest, vehicle_id: int) -> JsonResponse:
+def _api_collection_remove(
+	request: HttpRequest,
+	vehicle_id: int,
+	model_class,
+	collection_name: str,
+	state_key: str,
+	not_found_msg: str,
+) -> JsonResponse:
 	"""
-	Week 11 AJAX 範例：移除收藏車庫。
-	- Method: POST
-	- URL: /api/garage/remove/<vehicle_id>/
-	- Response: {"success": bool, "message": str, "in_garage": bool}
-	- Status: 200 成功；404 未收藏；405 方法錯誤；404 找不到車輛。
+	通用的「移除收藏」API 處理函式。
+	減少 garage/favorite remove 的重複程式碼。
 	"""
-	if request.method != "POST":
-		return JsonResponse({"success": False, "message": "僅支援 POST 方法。"}, status=405)
-
 	vehicle = get_object_or_404(Vehicle, pk=vehicle_id)
-	user_vehicle = UserVehicle.objects.filter(user=request.user, vehicle=vehicle).first()
-	if not user_vehicle:
+	item = model_class.objects.filter(user=request.user, vehicle=vehicle).first()
+	if not item:
 		return JsonResponse(
 			{
 				"success": False,
-				"message": "這台車尚未收藏。",
-				"in_garage": False,
+				"message": not_found_msg,
+				state_key: False,
 			},
 			status=404,
 		)
 
-	user_vehicle.delete()
-	messages.info(request, f"已將 {vehicle} 自我的車庫移除。")
+	item.delete()
 	return JsonResponse(
 		{
 			"success": True,
-			"message": f"已將 {vehicle} 自我的車庫移除。",
-			"in_garage": False,
+			"message": f"已將 {vehicle} 從{collection_name}移除。",
+			state_key: False,
 		},
 		status=200,
+	)
+
+
+@login_required
+@require_POST
+@ratelimit(key='user', rate='30/m', method='POST', block=True)
+def api_garage_add(request: HttpRequest, vehicle_id: int) -> JsonResponse:
+	"""
+	Week 10/11 範例：將車輛加入「我的車庫」。
+	- Method: POST
+	- URL: /api/garage/add/<vehicle_id>/
+	- Response: {"success": bool, "message": str, "in_garage": bool, "user_vehicle_id": int}
+	"""
+	return _api_collection_add(
+		request, vehicle_id, UserVehicle,
+		collection_name="車庫",
+		state_key="in_garage",
+		id_key="user_vehicle_id",
+	)
+
+
+@login_required
+@require_POST
+@ratelimit(key='user', rate='30/m', method='POST', block=True)
+def api_garage_remove(request: HttpRequest, vehicle_id: int) -> JsonResponse:
+	"""
+	Week 10/11 範例：自車庫移除車輛。
+	- Method: POST
+	- URL: /api/garage/remove/<vehicle_id>/
+	- Response: {"success": bool, "message": str, "in_garage": bool}
+	"""
+	return _api_collection_remove(
+		request, vehicle_id, UserVehicle,
+		collection_name="車庫",
+		state_key="in_garage",
+		not_found_msg="這台車尚未收藏於車庫。",
+	)
+
+
+@login_required
+@require_POST
+@ratelimit(key='user', rate='30/m', method='POST', block=True)
+def api_favorite_add(request: HttpRequest, vehicle_id: int) -> JsonResponse:
+	"""
+	Week 11 AJAX 範例：加入「我的最愛」（車款清單）。
+	- Method: POST
+	- URL: /api/favorites/add/<vehicle_id>/
+	- Response: {"success": bool, "favorite": bool, "favorite_id": int}
+	"""
+	return _api_collection_add(
+		request, vehicle_id, FavoriteVehicle,
+		collection_name="最愛清單",
+		state_key="favorite",
+		id_key="favorite_id",
+	)
+
+
+@login_required
+@require_POST
+@ratelimit(key='user', rate='30/m', method='POST', block=True)
+def api_favorite_remove(request: HttpRequest, vehicle_id: int) -> JsonResponse:
+	"""
+	Week 11 AJAX 範例：從我的最愛清單移除車輛。
+	- Method: POST
+	- URL: /api/favorites/remove/<vehicle_id>/
+	"""
+	return _api_collection_remove(
+		request, vehicle_id, FavoriteVehicle,
+		collection_name="最愛清單",
+		state_key="favorite",
+		not_found_msg="這台車尚未加入我的最愛。",
+	)
+
+
+@login_required
+def user_favorites(request: HttpRequest) -> HttpResponse:
+	favorites = (
+		request.user.favorite_vehicles.select_related("vehicle")
+		.prefetch_related("vehicle__images")
+		.order_by("-created_at")
+	)
+	return render(
+		request,
+		"motry/favorites.html",
+		{
+			"favorites": favorites,
+		},
 	)
 
 
@@ -485,7 +655,7 @@ class VehicleListAPIView(View):
 	}
 	"""
 
-	def get(self, request: HttpRequest) -> JsonResponse:
+	def get(self, _request: HttpRequest) -> JsonResponse:
 		cached = cache.get(VEHICLE_LIST_CACHE_KEY)
 		if cached is not None:
 			return JsonResponse(cached, status=200)

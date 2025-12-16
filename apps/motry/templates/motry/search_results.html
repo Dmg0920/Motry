@@ -77,15 +77,10 @@
 					{% for v in vehicles %}
 					<a href="/vehicle/{{ v.id }}/" class="vehicle-card">
 						<div class="vehicle-card__media">
-							{% if v.images.first and not v.images.first.image_url|is_default_image %}
+							{% vehicle_showcase_image v as vehicle_result_photo %}
+							{% if vehicle_result_photo %}
 								<img
-									src="{{ v.images.first.image_url }}"
-									alt="{{ v.brand }} {{ v.model }}"
-									data-fallback="{% vehicle_fallback_image v.brand v.model %}"
-								/>
-							{% elif v.cover_url and not v.cover_url|is_default_image %}
-								<img
-									src="{{ v.cover_url }}"
+									src="{{ vehicle_result_photo }}"
 									alt="{{ v.brand }} {{ v.model }}"
 									data-fallback="{% vehicle_fallback_image v.brand v.model %}"
 								/>

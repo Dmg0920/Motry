@@ -287,11 +287,9 @@ class Command(BaseCommand):
 		return f"https://picsum.photos/seed/{seed}/800/450"
 	
 	def _fallback_image(self, make: str, model_name: str) -> str:
-		"""最終fallback圖片（使用LoremFlickr）"""
-		query = "+".join(filter(None, [quote_plus(make or ""), quote_plus(model_name or "")])) or "car"
-		seed_source = "-".join(filter(None, [make or "", model_name or ""])) or "motry"
-		seed = int(hashlib.sha1(seed_source.encode("utf-8")).hexdigest(), 16) % 10000
-		return f"https://loremflickr.com/800/450/{query}?lock={seed}"
+		"""最終 fallback：改用文字占位圖，提示『目前該車輛沒有圖片』。"""
+		from apps.motry.templatetags.motry_extras import vehicle_fallback_image
+		return vehicle_fallback_image(make, model_name)
 
 	def _parse_int(self, value) -> int:
 		try:

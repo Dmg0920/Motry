@@ -14,6 +14,7 @@ _allowed_hosts = os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost")
 ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts.split(",") if host.strip()]
 
 DJANGO_APPS = [
+    "daphne",  # channels http/websocket server, 需在 staticfiles 之前
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -29,7 +30,6 @@ THIRD_PARTY_APPS = [
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
     "channels",
-    "daphne",
 ]
 
 LOCAL_APPS = [
@@ -81,7 +81,23 @@ DATABASES = {
     }
 }
 
-AUTH_PASSWORD_VALIDATORS = []
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,
+        }
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+]
 
 LANGUAGE_CODE = "zh-hant"
 TIME_ZONE = "Asia/Taipei"
@@ -110,8 +126,6 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "/auth/login/"
-LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/"
 
 _csrf_origins = os.getenv(
     "CSRF_TRUSTED_ORIGINS",
@@ -138,14 +152,7 @@ LOGGING = {
     },
 }
 
-# 自訂使用者模型
-AUTH_USER_MODEL = 'accounts.User'
-
-# config/settings/base.py
-
 SITE_ID = 1
-
-# config/settings/base.py
 
 AUTHENTICATION_BACKENDS = [
     # Django 預設的認證後端
@@ -190,37 +197,49 @@ AUTH_USER_MODEL = 'accounts.User'
 # ==========================================
 # Cache 設定 - 使用 Redis
 # ==========================================
+USE_REDIS = os.getenv("USE_REDIS", "1") == "1"
 REDIS_URI = os.getenv("REDIS_URI", "redis://127.0.0.1:6379/1")
 
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_URI,
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
-        "TIMEOUT": 300,  # 預設快取時間 5 分鐘（單位：秒）
-    }
+_local_cache = {
+    "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    "LOCATION": "motry-default",
+}
+_redis_cache = {
+    "BACKEND": "django_redis.cache.RedisCache",
+    "LOCATION": REDIS_URI,
+    "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+    "TIMEOUT": 300,
 }
 
+CACHES = {"default": _redis_cache if USE_REDIS else _local_cache}
+
 # Channels WebSocket 設定（Week12 即時通知）
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [REDIS_URI],
-        },
+if USE_REDIS:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [REDIS_URI]},
+        }
     }
-}
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            # 僅適用於單機開發，避免 Redis 未啟動時無法啟動伺服器
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
 
 # ==========================================
 # Celery 設定 - 使用 Redis 作為 Broker
 # ==========================================
-# Broker：任務佇列存放的地方（使用 Redis）
-CELERY_BROKER_URL = REDIS_URI
-
-# Result Backend：任務結果存放的地方（可選，這裡也用 Redis）
-CELERY_RESULT_BACKEND = REDIS_URI
+if USE_REDIS:
+    CELERY_BROKER_URL = REDIS_URI
+    CELERY_RESULT_BACKEND = REDIS_URI
+else:
+    # 開發模式下沒有 Redis 時，改用記憶體避免連線錯誤
+    CELERY_BROKER_URL = "memory://"
+    CELERY_RESULT_BACKEND = "cache+memory://"
+    CELERY_TASK_ALWAYS_EAGER = True
 
 # 時區設定（與 Django 一致）
 CELERY_TIMEZONE = TIME_ZONE

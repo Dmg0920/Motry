@@ -1,5 +1,5 @@
 from django import forms
-from .models import Post, Comment, Tag, Vehicle, UserVehicle
+from .models import Post, Comment, Tag, Vehicle, UserVehicle, VehicleImage
 
 
 class PostCreateForm(forms.Form):
@@ -45,15 +45,24 @@ class PostCreateForm(forms.Form):
 
 class CommentCreateForm(forms.ModelForm):
 	image = forms.ImageField(required=False, widget=forms.FileInput(attrs={"accept": "image/*", "placeholder": "上傳圖片（選填）"}))
-	
+
 	class Meta:
 		model = Comment
-		fields = ["post", "body_text", "image_url", "image"]
+		fields = ["post", "parent", "body_text", "image_url", "image"]
 		widgets = {
 			"post": forms.HiddenInput(),
+			"parent": forms.HiddenInput(),
 			"body_text": forms.Textarea(attrs={"rows": 2}),
 			"image_url": forms.URLInput(attrs={"placeholder": "圖片網址（選填，可替代檔案上傳）"}),
 		}
+
+	def clean(self):
+		cleaned_data = super().clean()
+		parent = cleaned_data.get("parent")
+		post = cleaned_data.get("post")
+		if parent and post and parent.post_id != post.id:
+			self.add_error("parent", "回覆的留言不屬於此貼文。")
+		return cleaned_data
 
 
 TYPE_CHOICES = (
@@ -143,3 +152,54 @@ class RatingForm(forms.Form):
 		choices=[(str(i), f"{i} 分") for i in range(1, 6)],
 		widget=forms.Select(attrs={"class": "form-select form-select--compact"}),
 	)
+
+
+class VehicleIntroForm(forms.ModelForm):
+	intro_md = forms.CharField(
+		required=False,
+		label="車輛簡介",
+		widget=forms.Textarea(
+			attrs={
+				"rows": 8,
+				"placeholder": "介紹這台車的定位、世代演進、技術亮點或值得一提的故事，並附上可信來源。",
+				"class": "vehicle-intro__textarea",
+			}
+		),
+		help_text="可使用 Markdown 語法；請引用可信來源並保持中立語氣。",
+	)
+
+	class Meta:
+		model = Vehicle
+		fields = ["intro_md"]
+
+		def __init__(self, *args, **kwargs):
+			super().__init__(*args, **kwargs)
+			self.fields["intro_md"].widget.attrs["data-intro-input"] = "true"
+
+
+class VehiclePhotoForm(forms.ModelForm):
+	image = forms.ImageField(
+		required=False,
+		widget=forms.FileInput(attrs={"accept": "image/*", "class": "vehicle-photo__file-input"}),
+		label="上傳圖片",
+	)
+	image_url = forms.URLField(
+		required=False,
+		widget=forms.URLInput(
+			attrs={
+				"placeholder": "或貼上圖片網址（需為公開圖片）",
+				"class": "vehicle-photo__url-input",
+			}
+		),
+		label="圖片網址",
+	)
+
+	class Meta:
+		model = VehicleImage
+		fields = ["image", "image_url"]
+
+	def clean(self):
+		data = super().clean()
+		if not data.get("image") and not data.get("image_url"):
+			raise forms.ValidationError("請上傳圖片或貼上圖片網址，至少擇一。")
+		return data

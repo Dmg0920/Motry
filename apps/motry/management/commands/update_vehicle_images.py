@@ -7,6 +7,17 @@ from django.db import transaction
 from apps.motry.models import Vehicle, VehicleImage
 
 
+def _is_bad_image(url: str) -> bool:
+	if not url:
+		return True
+	lower = url.lower()
+	if "default" in lower:
+		return True
+	if "loremflickr.com" in lower or "picsum.photos" in lower:
+		return True
+	return False
+
+
 class Command(BaseCommand):
 	help = "為現有車輛重新抓取圖片（從多個來源）"
 
@@ -56,11 +67,11 @@ class Command(BaseCommand):
 			if missing_only:
 				has_valid_image = False
 				# 檢查是否有有效的圖片
-				if vehicle.cover_url and "default" not in vehicle.cover_url.lower():
+				if vehicle.cover_url and not _is_bad_image(vehicle.cover_url):
 					has_valid_image = True
 				else:
 					for img in vehicle.images.all():
-						if img.image_url and "default" not in img.image_url.lower():
+						if img.image_url and not _is_bad_image(img.image_url):
 							has_valid_image = True
 							break
 				
@@ -93,7 +104,7 @@ class Command(BaseCommand):
 			else:
 				with transaction.atomic():
 					# 更新封面圖
-					if not vehicle.cover_url or "default" in vehicle.cover_url.lower():
+					if not vehicle.cover_url or _is_bad_image(vehicle.cover_url):
 						vehicle.cover_url = new_image_url
 						vehicle.save(update_fields=["cover_url"])
 					
@@ -103,7 +114,7 @@ class Command(BaseCommand):
 						sort_order=1,
 						defaults={"image_url": new_image_url}
 					)
-					if not created and ("default" in first_image.image_url.lower() or not first_image.image_url):
+					if not created and (_is_bad_image(first_image.image_url) or not first_image.image_url):
 						first_image.image_url = new_image_url
 						first_image.save(update_fields=["image_url"])
 
@@ -178,8 +189,6 @@ class Command(BaseCommand):
 		return f"https://picsum.photos/seed/{seed}/800/450"
 	
 	def _fallback_image(self, make: str, model_name: str) -> str:
-		"""最終fallback圖片（使用LoremFlickr）"""
-		query = "+".join(filter(None, [quote_plus(make or ""), quote_plus(model_name or "")])) or "car"
-		seed_source = "-".join(filter(None, [make or "", model_name or ""])) or "motry"
-		seed = int(hashlib.sha1(seed_source.encode("utf-8")).hexdigest(), 16) % 10000
-		return f"https://loremflickr.com/800/450/{query}?lock={seed}"
+		"""最終 fallback：改用文字占位圖，提示『目前該車輛沒有圖片』。"""
+		from apps.motry.templatetags.motry_extras import vehicle_fallback_image
+		return vehicle_fallback_image(make, model_name)

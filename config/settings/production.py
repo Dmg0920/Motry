@@ -27,13 +27,11 @@ if postgres_connection_string:
         )
     }
 else:
-    # 本地開發使用 SQLite (fallback)
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+    # 生產環境必須設定資料庫，不允許使用 SQLite
+    raise RuntimeError(
+        "生產環境必須設定 POSTGRES_CONNECTION_STRING 環境變數。"
+        "請確保在部署平台（如 Zeabur）上正確設定 PostgreSQL 資料庫。"
+    )
 
 # 生產環境安全設定
 SECURE_SSL_REDIRECT = True  # 強制使用 HTTPS
@@ -47,3 +45,11 @@ if SECURE_HSTS_SECONDS:
 
 # 信任 Zeabur 的代理伺服器
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# 生產環境必須使用 Redis
+if not os.getenv("REDIS_URI"):
+    import logging
+    logging.warning(
+        "警告：生產環境未設定 REDIS_URI，將使用本地記憶體快取。"
+        "強烈建議設定 Redis 以獲得更好的效能和可靠性。"
+    )
