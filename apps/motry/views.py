@@ -365,27 +365,21 @@ def post_delete(request: HttpRequest, post_id: int) -> HttpResponse:
 
 @login_required
 @require_POST
-def delete_comment(request, comment_id):
-    comment = get_object_or_404(Comment, id=comment_id)
+def comment_delete(request: HttpRequest, comment_id: int) -> HttpResponse:
+	comment = get_object_or_404(Comment.objects.select_related("post", "user"), pk=comment_id)
+	fallback = reverse("vehicle_detail", args=[comment.post.vehicle_id])
+	redirect_candidate = request.POST.get("next") or request.META.get("HTTP_REFERER")
+	redirect_url = _safe_redirect(request, redirect_candidate, fallback)
 
-    # 🔒 安全檢查 (Security Check)
-    # 邏輯修正：如果是「作者本人」或是「管理員(is_staff)」，都允許通過
-    # 反之，如果「不是作者」且「不是管理員」，就擋下來
-    if comment.user_id != request.user.id and not request.user.is_staff:
-        messages.error(request, "你沒有權限刪除這則評論！")
-        return redirect('vehicle_detail', id=comment.post.vehicle.id)
+	if not (comment.user_id == request.user.id or request.user.is_staff):
+		messages.error(request, "沒有權限刪除這則留言。")
+		return HttpResponseRedirect(redirect_url)
 
-    # ✅ 執行刪除 (軟刪除)
-    comment.is_deleted = True
-    comment.save()
-    
-    # 提示訊息可以區分一下
-    if request.user.is_staff and comment.user_id != request.user.id:
-        messages.success(request, "已刪除違規評論")
-    else:
-        messages.success(request, "評論已刪除")
-        
-    return redirect('vehicle_detail', id=comment.post.vehicle.id)
+	# 軟刪除：標記為已刪除而非真正刪除
+	comment.is_deleted = True
+	comment.save(update_fields=["is_deleted"])
+	messages.success(request, "留言已刪除。")
+	return HttpResponseRedirect(redirect_url)
 
 
 @login_required
