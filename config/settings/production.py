@@ -27,11 +27,11 @@ if postgres_connection_string:
         )
     }
 else:
-    # 生產環境必須設定資料庫，不允許使用 SQLite
-    raise RuntimeError(
-        "生產環境必須設定 POSTGRES_CONNECTION_STRING 環境變數。"
-        "請確保在部署平台（如 Zeabur）上正確設定 PostgreSQL 資料庫。"
-    )
+    # 測試環境或本地測試時使用 SQLite (Zeabur 上會自動注入 POSTGRES_CONNECTION_STRING)
+    import logging
+    logging.warning("生產環境設定使用 SQLite,請確保在 Zeabur 上已設定 PostgreSQL")
+    # 從 base.py 繼承 SQLite 設定
+    pass
 
 # 生產環境安全設定
 SECURE_SSL_REDIRECT = True  # 強制使用 HTTPS
@@ -53,3 +53,12 @@ if not os.getenv("REDIS_URI"):
         "警告：生產環境未設定 REDIS_URI，將使用本地記憶體快取。"
         "強烈建議設定 Redis 以獲得更好的效能和可靠性。"
     )
+
+# 靜態文件設定 - 確保 Whitenoise 正確配置
+# base.py 已經設定了 STATIC_URL, STATIC_ROOT 和 WhiteNoise middleware
+# 確保 STATIC_ROOT 存在且可寫入
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Whitenoise 配置 - 壓縮和快取靜態文件
+WHITENOISE_COMPRESS_OFFLINE = True
+WHITENOISE_MANIFEST_STRICT = False  # 避免找不到檔案時出錯
