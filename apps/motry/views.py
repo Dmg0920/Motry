@@ -1,8 +1,9 @@
 from django import forms
 from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import UserCreationForm
+from apps.accounts.forms import CustomUserCreationForm
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -14,6 +15,8 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
+
+from celery.result import AsyncResult
 from .forms import (
 	PostCreateForm,
 	CommentCreateForm,
@@ -429,14 +432,14 @@ def register(request: HttpRequest) -> HttpResponse:
 		return redirect("core:home")
 
 	if request.method == "POST":
-		form = UserCreationForm(request.POST)
+		form = CustomUserCreationForm(request.POST)
 		if form.is_valid():
 			user = form.save()
-			login(request, user)
+			login(request, user, backend='django.contrib.auth.backends.ModelBackend')
 			messages.success(request, "註冊成功，歡迎加入 Motry！")
 			return redirect("core:home")
 	else:
-		form = UserCreationForm()
+		form = CustomUserCreationForm()
 
 	return render(request, "motry/auth/register.html", {"form": form})
 
@@ -771,3 +774,58 @@ def comment_create_ajax(request: HttpRequest) -> JsonResponse:
 		"parent_id": comment.parent_id,
 		"message": "留言已送出!"
 	})
+
+
+# ==========================================
+# Celery 背景任務相關端點
+# ==========================================
+
+@staff_member_required
+@require_POST
+def export_vehicles_csv(request: HttpRequest) -> JsonResponse:
+	"""
+	觸發 Celery 背景任務：匯出車輛資料為 CSV。
+	- Method: POST
+	- URL: /api/export/vehicles/
+	- 僅限管理員使用
+	- Response: {"success": bool, "task_id": str, "message": str}
+	"""
+	from .tasks import export_vehicles_to_csv
+
+	task = export_vehicles_to_csv.delay(user_id=request.user.id)
+	return JsonResponse({
+		"success": True,
+		"task_id": task.id,
+		"message": "匯出任務已排入背景處理，請稍後查詢結果。",
+	})
+
+
+@staff_member_required
+def export_task_status(request: HttpRequest, task_id: str) -> JsonResponse:
+	"""
+	查詢 Celery 任務狀態。
+	- Method: GET
+	- URL: /api/export/status/<task_id>/
+	- Response: {"task_id": str, "status": str, "result": str|null}
+	"""
+	result = AsyncResult(task_id)
+	response_data = {
+		"task_id": task_id,
+		"status": result.status,
+		"result": None,
+	}
+
+	if result.successful():
+		file_path = result.result
+		# 轉換為相對於 MEDIA_URL 的路徑
+		from django.conf import settings
+		import os
+		if file_path and file_path.startswith(str(settings.MEDIA_ROOT)):
+			relative_path = os.path.relpath(file_path, settings.MEDIA_ROOT)
+			response_data["result"] = f"{settings.MEDIA_URL}{relative_path}"
+		else:
+			response_data["result"] = file_path
+	elif result.failed():
+		response_data["result"] = str(result.result)
+
+	return JsonResponse(response_data)

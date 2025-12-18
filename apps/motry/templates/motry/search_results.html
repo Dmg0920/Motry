@@ -66,6 +66,11 @@
 					{% else %}
 						<span>尚未找到符合項目</span>
 					{% endif %}
+					{% if user.is_staff %}
+						<button type="button" id="export-csv-btn" class="button button-ghost" style="margin-left: auto;">
+							匯出 CSV
+						</button>
+					{% endif %}
 				</div>
 				<p class="hero-subtitle hero-subtitle--compact">
 					調整左側條件即可即時更新結果。點擊車款可查看完整規格與車主心得。
@@ -140,4 +145,80 @@
 		</section>
 	</div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% if user.is_staff %}
+<script>
+(function() {
+	const btn = document.getElementById('export-csv-btn');
+	if (!btn) return;
+
+	btn.addEventListener('click', async function() {
+		const originalText = btn.textContent;
+		btn.disabled = true;
+		btn.textContent = '處理中...';
+
+		try {
+			// 1. 觸發匯出任務
+			const exportRes = await fetch('/api/export/vehicles/', {
+				method: 'POST',
+				headers: {
+					'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+						document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''
+				}
+			});
+			const exportData = await exportRes.json();
+
+			if (!exportData.success) {
+				throw new Error(exportData.message || '匯出失敗');
+			}
+
+			const taskId = exportData.task_id;
+			btn.textContent = '排程中...';
+
+			// 2. 輪詢任務狀態
+			let attempts = 0;
+			const maxAttempts = 30; // 最多等待 30 秒
+
+			const pollStatus = async () => {
+				attempts++;
+				const statusRes = await fetch(`/api/export/status/${taskId}/`);
+				const statusData = await statusRes.json();
+
+				if (statusData.status === 'SUCCESS') {
+					btn.textContent = '下載中...';
+					// 下載檔案
+					if (statusData.result) {
+						const link = document.createElement('a');
+						link.href = statusData.result;
+						link.download = '';
+						document.body.appendChild(link);
+						link.click();
+						document.body.removeChild(link);
+					}
+					btn.disabled = false;
+					btn.textContent = originalText;
+					alert('匯出完成！');
+				} else if (statusData.status === 'FAILURE') {
+					throw new Error(statusData.result || '任務執行失敗');
+				} else if (attempts < maxAttempts) {
+					btn.textContent = `處理中 (${attempts}s)...`;
+					setTimeout(pollStatus, 1000);
+				} else {
+					throw new Error('任務超時，請稍後再試');
+				}
+			};
+
+			await pollStatus();
+
+		} catch (err) {
+			alert('匯出失敗: ' + err.message);
+			btn.disabled = false;
+			btn.textContent = originalText;
+		}
+	});
+})();
+</script>
+{% endif %}
 {% endblock %}

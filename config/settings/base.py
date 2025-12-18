@@ -255,3 +255,20 @@ CELERY_RESULT_SERIALIZER = 'json'
 
 # 啟動時重試連線（消除 Celery 6.0 棄用警告）
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# ==========================================
+# Celery Beat 定時任務排程
+# ==========================================
+CELERY_BEAT_SCHEDULE = {
+    # 每天凌晨 3 點清理過期匯出檔案
+    "cleanup-old-exports-daily": {
+        "task": "apps.motry.tasks.cleanup_old_exports",
+        "schedule": 60 * 60 * 24,  # 每 24 小時執行一次
+        "kwargs": {"days": 7},  # 保留 7 天內的檔案
+    },
+    # 每 5 分鐘刷新品牌快取（快取 TTL 為 10 分鐘）
+    "refresh-brand-cache-periodically": {
+        "task": "apps.motry.tasks.refresh_brand_cache",
+        "schedule": 60 * 5,  # 每 5 分鐘執行一次
+    },
+}

@@ -29,4 +29,7 @@ urlpatterns = [
 	path("auth/register/", views.register, name="register"),
 	path("auth/login/", auth_views.LoginView.as_view(template_name="motry/auth/login.html"), name="login"),
 	path("auth/logout/", auth_views.LogoutView.as_view(), name="logout"),
+	# Celery 背景任務端點
+	path("api/export/vehicles/", views.export_vehicles_csv, name="export_vehicles_csv"),
+	path("api/export/status/<str:task_id>/", views.export_task_status, name="export_task_status"),
 ]
