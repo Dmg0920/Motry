@@ -37,7 +37,6 @@ from .models import (
 	FavoriteVehicle,
 	Rating,
 )
-from .utils import is_placeholder_image
 
 
 VEHICLE_LIST_CACHE_KEY = "api:vehicle_list"
@@ -801,7 +800,7 @@ def export_vehicles_csv(request: HttpRequest) -> JsonResponse:
 
 
 @staff_member_required
-def export_task_status(request: HttpRequest, task_id: str) -> JsonResponse:
+def export_task_status(request: HttpRequest, task_id: str) -> JsonResponse:  # noqa: ARG001
 	"""
 	查詢 Celery 任務狀態。
 	- Method: GET

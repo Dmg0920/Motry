@@ -3,9 +3,27 @@
 {% block content %}
 <div class="page-container">
 	<div class="layout layout--with-sidebar layout--align-top">
-		<aside class="card">
+		<!-- 手機版搜尋按鈕 -->
+		<button type="button" class="mobile-search-toggle" id="mobile-search-toggle" aria-label="開啟搜尋條件" aria-expanded="false">
+			<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<circle cx="11" cy="11" r="8"></circle>
+				<path d="m21 21-4.3-4.3"></path>
+			</svg>
+			<span>搜尋條件</span>
+		</button>
+
+		<!-- 手機版遮罩 -->
+		<div class="mobile-search-overlay" id="mobile-search-overlay"></div>
+
+		<aside class="card search-sidebar" id="search-sidebar">
 			<div class="section-heading">
 				<h2>搜尋條件</h2>
+				<button type="button" class="mobile-search-close" id="mobile-search-close" aria-label="關閉搜尋條件">
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M18 6 6 18"></path>
+						<path d="m6 6 12 12"></path>
+					</svg>
+				</button>
 			</div>
 			<form action="/search" method="get" class="search-panel">
 				<div class="search-panel__row">
@@ -148,6 +166,42 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+// 手機版搜尋面板切換
+(function() {
+	const toggle = document.getElementById('mobile-search-toggle');
+	const close = document.getElementById('mobile-search-close');
+	const sidebar = document.getElementById('search-sidebar');
+	const overlay = document.getElementById('mobile-search-overlay');
+
+	if (!toggle || !sidebar) return;
+
+	function openSearch() {
+		sidebar.classList.add('active');
+		overlay.classList.add('active');
+		toggle.setAttribute('aria-expanded', 'true');
+		document.body.style.overflow = 'hidden';
+	}
+
+	function closeSearch() {
+		sidebar.classList.remove('active');
+		overlay.classList.remove('active');
+		toggle.setAttribute('aria-expanded', 'false');
+		document.body.style.overflow = '';
+	}
+
+	toggle.addEventListener('click', openSearch);
+	close.addEventListener('click', closeSearch);
+	overlay.addEventListener('click', closeSearch);
+
+	// ESC 鍵關閉
+	document.addEventListener('keydown', function(e) {
+		if (e.key === 'Escape' && sidebar.classList.contains('active')) {
+			closeSearch();
+		}
+	});
+})();
+</script>
 {% if user.is_staff %}
 <script>
 (function() {

@@ -1591,3 +1591,144 @@ select:disabled {
 .comment--depth-5 {
 	display: none;
 }
+
+/* ========== 手機版搜尋面板 ========== */
+.mobile-search-toggle {
+	display: none; /* 預設桌面版隱藏 */
+	align-items: center;
+	gap: 8px;
+	padding: 12px 20px;
+	background: var(--color-brand);
+	color: white;
+	border: none;
+	border-radius: var(--radius-full);
+	font-size: 0.95rem;
+	font-weight: 600;
+	cursor: pointer;
+	position: fixed;
+	bottom: 24px;
+	right: 24px;
+	z-index: 90;
+	box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+	transition: var(--transition-base);
+}
+
+.mobile-search-toggle:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 6px 24px rgba(139, 92, 246, 0.5);
+}
+
+.mobile-search-toggle:active {
+	transform: translateY(0);
+}
+
+.mobile-search-toggle svg {
+	flex-shrink: 0;
+}
+
+.mobile-search-close {
+	display: none; /* 預設桌面版隱藏 */
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	padding: 0;
+	background: transparent;
+	border: none;
+	border-radius: var(--radius-md);
+	color: var(--color-text-secondary);
+	cursor: pointer;
+	transition: var(--transition-fast);
+}
+
+.mobile-search-close:hover {
+	background: var(--color-surface-hover);
+	color: var(--color-text);
+}
+
+.mobile-search-overlay {
+	display: none;
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.5);
+	backdrop-filter: blur(4px);
+	z-index: 98;
+	opacity: 0;
+	transition: opacity 0.3s ease;
+}
+
+.mobile-search-overlay.active {
+	opacity: 1;
+}
+
+/* 搜尋面板 section-heading 調整 */
+.search-sidebar .section-heading {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.search-sidebar .section-heading h2 {
+	margin: 0;
+}
+
+/* 手機版響應式 */
+@media (max-width: 960px) {
+	.mobile-search-toggle {
+		display: flex;
+	}
+
+	.mobile-search-close {
+		display: flex;
+	}
+
+	.mobile-search-overlay {
+		display: block;
+		pointer-events: none;
+	}
+
+	.mobile-search-overlay.active {
+		pointer-events: auto;
+	}
+
+	.search-sidebar {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		max-width: 360px;
+		height: 100vh;
+		max-height: 100vh;
+		overflow-y: auto;
+		z-index: 99;
+		border-radius: 0;
+		transform: translateX(-100%);
+		transition: transform 0.3s ease;
+		margin: 0;
+	}
+
+	.search-sidebar.active {
+		transform: translateX(0);
+	}
+
+	/* 調整 layout 在手機版不需要為 sidebar 預留空間 */
+	.layout--with-sidebar {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* 小螢幕時搜尋按鈕只顯示圖示 */
+@media (max-width: 480px) {
+	.mobile-search-toggle span {
+		display: none;
+	}
+
+	.mobile-search-toggle {
+		padding: 14px;
+		border-radius: 50%;
+	}
+
+	.search-sidebar {
+		max-width: 100%;
+	}
+}
