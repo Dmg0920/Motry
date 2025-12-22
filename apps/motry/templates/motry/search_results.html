@@ -30,16 +30,10 @@
 					<input type="text" name="query" placeholder="輸入車名或品牌" value="{{ query }}" />
 				</div>
 				<div class="search-panel__row">
-					<select name="type" id="results-search-type" class="form-select form-select--compact">
-						<option value="" {% if not type %}selected{% endif %}>全部類型</option>
-						<option value="car" {% if type == "car" %}selected{% endif %}>汽車</option>
-						<option value="bike" {% if type == "bike" %}selected{% endif %}>機車</option>
-					</select>
 					<select
 						name="brand"
 						class="form-select form-select--compact"
 						data-brand-select
-						data-type-input="#results-search-type"
 						data-selected-value="{{ brand }}"
 					>
 						<option value="">全部品牌</option>

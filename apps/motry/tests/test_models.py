@@ -32,43 +32,39 @@ class VehicleModelTests(TestCase):
 
     def setUp(self):
         self.vehicle = Vehicle.objects.create(
-            type="car",
-            brand="Toyota",
-            model="Camry",
-            generation="XV70",
-            years_from=2018,
+            brand="Honda",
+            model="CB650R",
+            generation="2019-",
+            years_from=2019,
             years_to=2023,
-            displacement_cc=2487,
+            displacement_cc=649,
             cylinders=4,
-            horsepower_ps=203,
-            msrp_new=1200000,
+            horsepower_ps=95,
+            msrp_new=380000,
         )
 
     def test_vehicle_creation(self):
         """測試車輛建立"""
-        self.assertEqual(self.vehicle.brand, "Toyota")
-        self.assertEqual(self.vehicle.model, "Camry")
-        self.assertEqual(self.vehicle.type, "car")
+        self.assertEqual(self.vehicle.brand, "Honda")
+        self.assertEqual(self.vehicle.model, "CB650R")
 
     def test_vehicle_str_with_generation(self):
         """測試 __str__ 方法（有世代）"""
-        self.assertEqual(str(self.vehicle), "Toyota Camry (XV70)")
+        self.assertEqual(str(self.vehicle), "Honda CB650R (2019-)")
 
     def test_vehicle_str_without_generation(self):
         """測試 __str__ 方法（無世代）"""
         vehicle = Vehicle.objects.create(
-            type="bike",
-            brand="Honda",
-            model="CB650R",
+            brand="Yamaha",
+            model="MT-07",
         )
-        self.assertEqual(str(vehicle), "Honda CB650R")
+        self.assertEqual(str(vehicle), "Yamaha MT-07")
 
     def test_vehicle_optional_fields(self):
         """測試可選欄位可為空"""
         vehicle = Vehicle.objects.create(
-            type="car",
-            brand="BMW",
-            model="3 Series",
+            brand="Kawasaki",
+            model="Ninja 400",
         )
         self.assertIsNone(vehicle.displacement_cc)
         self.assertIsNone(vehicle.horsepower_ps)
@@ -80,9 +76,8 @@ class VehicleImageModelTests(TestCase):
 
     def setUp(self):
         self.vehicle = Vehicle.objects.create(
-            type="car",
-            brand="Toyota",
-            model="Supra",
+            brand="Yamaha",
+            model="YZF-R6",
         )
         self.image = VehicleImage.objects.create(
             vehicle=self.vehicle,
@@ -122,9 +117,8 @@ class PostModelTests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="car",
-            brand="Mazda",
-            model="MX-5",
+            brand="Honda",
+            model="CBR600RR",
         )
         self.post = Post.objects.create(
             vehicle=self.vehicle,
@@ -169,7 +163,6 @@ class CommentModelTests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="bike",
             brand="Yamaha",
             model="MT-07",
         )
@@ -254,9 +247,8 @@ class PostTagModelTests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="car",
-            brand="Ford",
-            model="Mustang",
+            brand="Suzuki",
+            model="GSX-R1000",
         )
         self.post = Post.objects.create(
             vehicle=self.vehicle,
@@ -287,7 +279,7 @@ class LikeModelTests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="car",
+            
             brand="Tesla",
             model="Model 3",
         )
@@ -326,7 +318,7 @@ class RatingModelTests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="car",
+            
             brand="Porsche",
             model="911",
         )
@@ -377,7 +369,7 @@ class UserVehicleModelTests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="car",
+            
             brand="Lexus",
             model="IS300",
         )
@@ -426,7 +418,7 @@ class FavoriteVehicleModelTests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="bike",
+            
             brand="Ducati",
             model="Panigale V4",
         )

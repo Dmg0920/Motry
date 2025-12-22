@@ -271,4 +271,17 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.motry.tasks.refresh_brand_cache",
         "schedule": 60 * 5,  # 每 5 分鐘執行一次
     },
+    # 每週同步機車資料（週日凌晨 4 點）
+    "sync-motorcycles-weekly": {
+        "task": "apps.motry.tasks.sync_motorcycles_task",
+        "schedule": 60 * 60 * 24 * 7,  # 每 7 天執行一次
+        "kwargs": {"limit": 30},  # 每個品牌最多同步 30 筆
+    },
 }
+
+# ==========================================
+# 外部 API 設定
+# ==========================================
+# API Ninjas - 機車資料同步
+# 取得 API Key: https://api-ninjas.com/
+API_NINJAS_KEY = os.getenv("API_NINJAS_KEY", "")

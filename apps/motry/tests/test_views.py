@@ -45,7 +45,7 @@ class PublicViewTests(TestCase):
     def setUp(self):
         self.client = Client()
         self.vehicle = Vehicle.objects.create(
-            type="car",
+            
             brand="Toyota",
             model="GR86",
             displacement_cc=2387,
@@ -183,7 +183,7 @@ class ProtectedViewTests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="car",
+            
             brand="Honda",
             model="Civic",
         )
@@ -261,7 +261,7 @@ class PostViewTests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="car",
+            
             brand="Subaru",
             model="BRZ",
         )
@@ -308,7 +308,7 @@ class CommentViewTests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="bike",
+            
             brand="Kawasaki",
             model="Ninja 400",
         )
@@ -365,7 +365,7 @@ class RatingViewTests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="car",
+            
             brand="Mercedes-Benz",
             model="C-Class",
         )
@@ -423,7 +423,7 @@ class LikeViewTests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="car",
+            
             brand="Audi",
             model="RS6",
         )

@@ -65,52 +65,25 @@ class CommentCreateForm(forms.ModelForm):
 		return cleaned_data
 
 
-TYPE_CHOICES = (
-	("car", "汽車"),
-	("bike", "機車"),
+BRAND_CHOICES = (
+	("Yamaha", "Yamaha"),
+	("Honda", "Honda"),
+	("Kawasaki", "Kawasaki"),
+	("Suzuki", "Suzuki"),
+	("Ducati", "Ducati"),
+	("KTM", "KTM"),
 )
-
-BRANDS_BY_TYPE = {
-	"car": (
-		("BMW", "BMW"),
-		("Toyota", "Toyota"),
-		("Mercedes-Benz", "Mercedes-Benz"),
-		("Audi", "Audi"),
-		("Porsche", "Porsche"),
-	),
-	"bike": (
-		("Yamaha", "Yamaha"),
-		("Honda", "Honda"),
-		("Kawasaki", "Kawasaki"),
-		("Suzuki", "Suzuki"),
-		("Ducati", "Ducati"),
-		("KTM", "KTM"),
-	),
-}
 
 
 class VehicleCreateForm(forms.ModelForm):
 	# 用選單限制輸入；實際存回文字欄位
-	type = forms.ChoiceField(choices=TYPE_CHOICES, widget=forms.Select(attrs={"class": "form-select"}))
-	brand = forms.ChoiceField(choices=(), widget=forms.Select(attrs={"class": "form-select"}))
+	brand = forms.ChoiceField(choices=BRAND_CHOICES, widget=forms.Select(attrs={"class": "form-select"}))
 	cover_url = forms.URLField(required=False)
 	intro_md = forms.CharField(widget=forms.Textarea(attrs={"rows": 4}), required=False)
-
-	def __init__(self, *args, **kwargs):
-		selected_type = kwargs.pop("selected_type", None)
-		super().__init__(*args, **kwargs)
-		if selected_type in BRANDS_BY_TYPE:
-			self.fields["brand"].choices = BRANDS_BY_TYPE[selected_type]
-			self.fields["type"].initial = selected_type
-		else:
-			# 預設用 car 清單（或可合併兩者）
-			self.fields["brand"].choices = BRANDS_BY_TYPE["car"]
-		self.fields["brand"].widget.attrs.setdefault("class", "form-select")
 
 	class Meta:
 		model = Vehicle
 		fields = [
-			"type",
 			"brand",
 			"model",
 			"generation",

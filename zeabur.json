@@ -1,0 +1,35 @@
+{
+  "$schema": "https://schema.zeabur.app/template.json",
+  "services": [
+    {
+      "name": "web",
+      "template": "PREBUILT",
+      "source": {
+        "type": "GIT"
+      },
+      "instruction": {
+        "start": "daphne -b 0.0.0.0 -p $PORT config.asgi:application"
+      }
+    },
+    {
+      "name": "worker",
+      "template": "PREBUILT",
+      "source": {
+        "type": "GIT"
+      },
+      "instruction": {
+        "start": "celery -A config worker -l info"
+      }
+    },
+    {
+      "name": "beat",
+      "template": "PREBUILT",
+      "source": {
+        "type": "GIT"
+      },
+      "instruction": {
+        "start": "celery -A config beat -l info"
+      }
+    }
+  ]
+}

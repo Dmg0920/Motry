@@ -9,7 +9,6 @@ from apps.motry.utils import is_placeholder_image
 class Vehicle(models.Model):
 	"""核心車輛資料表（Week 5/6 範例：一對多/多對多的中心實體）。"""
 
-	type = models.CharField(max_length=10)  # car/bike
 	brand = models.CharField(max_length=50)
 	model = models.CharField(max_length=100)
 	generation = models.CharField(max_length=50, blank=True)

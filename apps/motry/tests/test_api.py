@@ -28,9 +28,9 @@ class VehicleListAPITests(TestCase):
     def setUp(self):
         self.client = Client()
         # 創建測試車輛
-        Vehicle.objects.create(type="car", brand="Toyota", model="Camry")
-        Vehicle.objects.create(type="car", brand="Honda", model="Accord")
-        Vehicle.objects.create(type="bike", brand="Yamaha", model="R1")
+        Vehicle.objects.create(brand="Toyota", model="Camry")
+        Vehicle.objects.create(brand="Honda", model="Accord")
+        Vehicle.objects.create(brand="Yamaha", model="R1")
 
     def test_vehicle_list_api_success(self):
         """測試車輛列表 API 回應"""
@@ -51,7 +51,6 @@ class VehicleListAPITests(TestCase):
         vehicle = data["data"]["vehicles"][0]
         expected_fields = [
             "id",
-            "type",
             "brand",
             "model",
             "displacement_cc",
@@ -72,7 +71,7 @@ class GarageAPITests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="car",
+            
             brand="BMW",
             model="M3",
         )
@@ -159,7 +158,7 @@ class FavoriteAPITests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="bike",
+            
             brand="Ducati",
             model="Monster",
         )
@@ -231,7 +230,7 @@ class RatingAjaxAPITests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="car",
+            
             brand="Porsche",
             model="Cayman",
         )
@@ -299,7 +298,7 @@ class CommentAjaxAPITests(TestCase):
             password="testpass123",
         )
         self.vehicle = Vehicle.objects.create(
-            type="car",
+            
             brand="Ferrari",
             model="488",
         )
@@ -399,7 +398,7 @@ class ExportAPITests(TestCase):
             is_staff=True,
         )
         # 創建測試車輛
-        Vehicle.objects.create(type="car", brand="Tesla", model="Model S")
+        Vehicle.objects.create(brand="Tesla", model="Model S")
 
     def test_export_requires_staff(self):
         """測試匯出需要管理員權限"""

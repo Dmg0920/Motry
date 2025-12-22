@@ -49,18 +49,12 @@
       <div class="page-container nav-search-row">
         <form action="{% url 'search' %}" method="get" class="nav-search" role="search">
           <input type="text" name="query" placeholder="搜尋品牌或車型" aria-label="搜尋品牌或車型" value="{{ request.GET.query|default_if_none:'' }}" />
-          <select name="type" id="nav-search-type" aria-label="車輛類型" class="form-select form-select--compact">
-            <option value="" {% if not request.GET.type %}selected{% endif %}>全部</option>
-            <option value="car" {% if request.GET.type == 'car' %}selected{% endif %}>汽車</option>
-            <option value="bike" {% if request.GET.type == 'bike' %}selected{% endif %}>機車</option>
-          </select>
           <select
             name="brand"
             id="nav-search-brand"
             aria-label="品牌"
             class="form-select form-select--compact"
             data-brand-select
-            data-type-input="#nav-search-type"
             data-selected-value="{{ request.GET.brand|default_if_none:'' }}"
           >
             <option value="">全部品牌</option>
@@ -83,7 +77,7 @@
       {% block content %}{% endblock %}
     </main>
 
-    <script type="application/json" id="brand-map-data">{{ brand_map_json|default:"{}" }}</script>
+    <script type="application/json" id="brand-list-data">{{ brand_list_json|default:"[]" }}</script>
     <script src="{% static 'core/js/global.js' %}?v=20250304"></script>
     <script src="{% static 'core/js/utils.js' %}?v=20250304"></script>
     <script src="{% static 'motry/js/notifications.js' %}?v=20250304"></script>

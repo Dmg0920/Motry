@@ -110,7 +110,6 @@ def _build_vehicle_detail_context(
 
 def search(request: HttpRequest) -> HttpResponse:
 	query = request.GET.get("query", "").strip()
-	vtype = request.GET.get("type", "").strip()
 	brand = request.GET.get("brand", "").strip()
 	displacement_min = request.GET.get("displacement_min", "").strip()
 	displacement_max = request.GET.get("displacement_max", "").strip()
@@ -121,8 +120,6 @@ def search(request: HttpRequest) -> HttpResponse:
 	qs = Vehicle.objects.all()
 	if query:
 		qs = qs.filter(Q(brand__icontains=query) | Q(model__icontains=query))
-	if vtype:
-		qs = qs.filter(type__iexact=vtype)
 	if brand:
 		qs = qs.filter(brand__icontains=brand)
 	if displacement_min:
@@ -163,7 +160,6 @@ def search(request: HttpRequest) -> HttpResponse:
 		"vehicles": page_obj.object_list,
 		"page_obj": page_obj,
 		"query": query,
-		"type": vtype,
 		"brand": brand,
 		"displacement_min": displacement_min,
 		"displacement_max": displacement_max,
@@ -182,20 +178,14 @@ def vehicle_detail(request: HttpRequest, id: int) -> HttpResponse:
 
 @login_required
 def vehicle_create(request: HttpRequest) -> HttpResponse:
-	selected_type = request.POST.get("type") or request.GET.get("type") or None
-	if request.method == "POST" and request.POST.get("refresh") == "1":
-		# 僅切換類型，重繪表單，不觸發驗證與儲存
-		form = VehicleCreateForm(request.POST, selected_type=selected_type)
-		return render(request, "motry/vehicle_form.html", {"form": form})
-
 	if request.method == "POST":
-		form = VehicleCreateForm(request.POST, selected_type=selected_type)
+		form = VehicleCreateForm(request.POST)
 		if form.is_valid():
 			vehicle = form.save()
 			messages.success(request, "車款已建立！")
 			return redirect("vehicle_detail", id=vehicle.id)
 	else:
-		form = VehicleCreateForm(selected_type=selected_type)
+		form = VehicleCreateForm()
 	return render(request, "motry/vehicle_form.html", {"form": form})
 
 
@@ -665,7 +655,6 @@ class VehicleListAPIView(View):
 		vehicles = list(
 			Vehicle.objects.order_by("brand", "model").values(
 				"id",
-				"type",
 				"brand",
 				"model",
 				"displacement_cc",

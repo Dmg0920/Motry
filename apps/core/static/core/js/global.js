@@ -1,84 +1,60 @@
 (() => {
   "use strict";
 
-  function parseBrandMap() {
-    const dataElement = document.getElementById("brand-map-data");
+  function parseBrandList() {
+    const dataElement = document.getElementById("brand-list-data");
     if (!dataElement) {
-      return {};
+      return [];
     }
 
     try {
-      const raw = dataElement.textContent || "{}";
+      const raw = dataElement.textContent || "[]";
       return JSON.parse(raw);
     } catch (error) {
-      console.warn("[Motry] Failed to parse brand map:", error);
-      return {};
+      console.warn("[Motry] Failed to parse brand list:", error);
+      return [];
     }
   }
 
-  function buildBrandOptions(brandMap, type, currentValue) {
+  function buildBrandOptions(brands, currentValue) {
     const fragment = document.createDocumentFragment();
     const emptyOption = document.createElement("option");
     emptyOption.value = "";
     emptyOption.textContent = "全部品牌";
     fragment.appendChild(emptyOption);
 
-    const seen = new Set();
-
-    function appendOptions(items) {
-      items.forEach((name) => {
-        if (!name || seen.has(name)) {
-          return;
-        }
-        seen.add(name);
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = name;
-        if (name === currentValue) {
-          option.selected = true;
-        }
-        fragment.appendChild(option);
-      });
-    }
-
-    if (!type) {
-      Object.values(brandMap).forEach((items) => appendOptions(items));
-    } else if (brandMap[type]) {
-      appendOptions(brandMap[type]);
-    }
+    brands.forEach((name) => {
+      if (!name) {
+        return;
+      }
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      if (name === currentValue) {
+        option.selected = true;
+      }
+      fragment.appendChild(option);
+    });
 
     return fragment;
   }
 
-  function initBrandSelects(brandMap) {
+  function initBrandSelects(brands) {
     const selects = document.querySelectorAll("[data-brand-select]");
     if (!selects.length) {
       return;
     }
 
     selects.forEach((select) => {
-      const typeSelector = select.dataset.typeInput
-        ? document.querySelector(select.dataset.typeInput)
-        : select.form && select.form.querySelector('select[name="type"]');
+      const current = select.dataset.selectedValue || select.value || "";
 
-      const refreshOptions = () => {
-        const current = select.dataset.selectedValue || select.value || "";
-        const typeValue = typeSelector ? typeSelector.value : "";
-
-        while (select.options.length > 0) {
-          select.remove(0);
-        }
-        select.appendChild(buildBrandOptions(brandMap, typeValue, current));
-        if (current) {
-          select.value = current;
-        }
-      };
-
-      if (typeSelector) {
-        typeSelector.addEventListener("change", refreshOptions);
+      while (select.options.length > 0) {
+        select.remove(0);
       }
-
-      refreshOptions();
+      select.appendChild(buildBrandOptions(brands, current));
+      if (current) {
+        select.value = current;
+      }
 
       select.addEventListener("change", () => {
         select.dataset.selectedValue = select.value;
@@ -99,8 +75,8 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    const brandMap = parseBrandMap();
-    initBrandSelects(brandMap);
+    const brands = parseBrandList();
+    initBrandSelects(brands);
     initImageFallbacks();
   });
 })();

@@ -5,7 +5,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.db.models import Count
 
-from apps.motry.forms import BRANDS_BY_TYPE
+from apps.motry.forms import BRAND_CHOICES
 from apps.motry.models import Tag, Vehicle, UserVehicle
 
 # 快取鍵與時間常數
@@ -45,15 +45,7 @@ def home(request: HttpRequest) -> HttpResponse:
         .order_by("-post_count", "name")[:6]
     )
 
-    popular_brands = []
-    for type_group in BRANDS_BY_TYPE.values():
-        for brand_key, brand_label in type_group:
-            if brand_key not in popular_brands:
-                popular_brands.append(brand_key)
-            if len(popular_brands) >= 6:
-                break
-        if len(popular_brands) >= 6:
-            break
+    popular_brands = [brand_key for brand_key, _ in BRAND_CHOICES[:6]]
 
     recommended_vehicles = _get_random_vehicles(4)
 

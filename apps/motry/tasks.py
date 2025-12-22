@@ -5,17 +5,20 @@ Celery 任務定義（Week 13）
 - export_vehicles_to_csv: 匯出車輛清單 CSV（背景任務）
 - cleanup_old_exports: 清理過期匯出檔案（定時任務）
 - refresh_brand_cache: 重新整理品牌快取（定時任務）
+- sync_motorcycles_task: 同步機車資料（定時任務）
 """
 
 import csv
 import logging
 import os
 from datetime import timedelta
+from io import StringIO
 from pathlib import Path
 
 from celery import shared_task
 from django.conf import settings
 from django.core.cache import cache
+from django.core.management import call_command
 from django.utils import timezone
 
 from .models import Vehicle
@@ -48,7 +51,6 @@ def export_vehicles_to_csv(self, user_id: int | None = None) -> str:
 
 	headers = [
 		"ID",
-		"Type",
 		"Brand",
 		"Model",
 		"Generation",
@@ -71,7 +73,6 @@ def export_vehicles_to_csv(self, user_id: int | None = None) -> str:
 			writer.writerow(
 				[
 					vehicle.id,
-					vehicle.type,
 					vehicle.brand,
 					vehicle.model,
 					vehicle.generation,
@@ -138,21 +139,19 @@ def refresh_brand_cache() -> dict:
 		dict: 快取更新結果
 	"""
 	from .cache_keys import BRAND_MAP_CACHE_KEY
-	from .context_processors import _build_brand_map, BRAND_MAP_CACHE_TTL
+	from .context_processors import _build_brand_list, BRAND_MAP_CACHE_TTL
 
 	try:
-		brand_map = _build_brand_map()
-		cache.set(BRAND_MAP_CACHE_KEY, brand_map, BRAND_MAP_CACHE_TTL)
+		brand_list = _build_brand_list()
+		cache.set(BRAND_MAP_CACHE_KEY, brand_list, BRAND_MAP_CACHE_TTL)
 
-		car_count = len(brand_map.get("car", []))
-		bike_count = len(brand_map.get("bike", []))
+		brand_count = len(brand_list)
 
-		logger.info(f"品牌快取已更新: {car_count} 個汽車品牌, {bike_count} 個機車品牌")
+		logger.info(f"品牌快取已更新: {brand_count} 個機車品牌")
 
 		return {
 			"success": True,
-			"car_brands": car_count,
-			"bike_brands": bike_count,
+			"brand_count": brand_count,
 			"message": "品牌快取已更新",
 		}
 	except Exception as e:
@@ -160,4 +159,42 @@ def refresh_brand_cache() -> dict:
 		return {
 			"success": False,
 			"message": str(e),
+		}
+
+
+@shared_task
+def sync_motorcycles_task(makes: list[str] | None = None, limit: int = 30) -> dict:
+	"""
+	定時任務：透過 API Ninjas 同步機車資料。
+
+	Args:
+		makes: 要同步的品牌列表，預設使用常見機車品牌
+		limit: 每個品牌最多同步筆數
+
+	Returns:
+		dict: 同步結果統計
+	"""
+	output = StringIO()
+
+	try:
+		args = ["sync_motorcycles", f"--limit={limit}"]
+		if makes:
+			args.extend(["--makes"] + makes)
+
+		call_command(*args, stdout=output, stderr=output)
+
+		output_text = output.getvalue()
+		logger.info(f"機車資料同步完成:\n{output_text}")
+
+		return {
+			"success": True,
+			"message": "機車資料同步完成",
+			"output": output_text,
+		}
+	except Exception as e:
+		logger.error(f"機車資料同步失敗: {e}")
+		return {
+			"success": False,
+			"message": str(e),
+			"output": output.getvalue(),
 		}

@@ -13,15 +13,9 @@
 		</p>
 		<form id="vehicle-form" method="post" class="form-grid">
 			{% csrf_token %}
-			<input type="hidden" name="refresh" id="refresh-flag" value="0" />
 			{{ form.non_field_errors }}
 
 			<div class="fieldset-grid">
-				<div class="form-row">
-					<label for="{{ form.type.id_for_label }}">類型</label>
-					{{ form.type }}
-					{{ form.type.errors }}
-				</div>
 				<div class="form-row">
 					<label for="{{ form.brand.id_for_label }}">品牌</label>
 					{{ form.brand }}
@@ -98,5 +92,4 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'motry/js/vehicle_form.js' %}"></script>
 {% endblock %}
