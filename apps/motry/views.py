@@ -643,7 +643,7 @@ class VehicleListAPIView(View):
 	Response:
 	{
 		"success": true,
-		"data": {"vehicles": [{id, type, brand, model, displacement_cc, horsepower_ps, cylinders}]}
+		"data": {"vehicles": [{id, brand, model, displacement_cc, horsepower_ps, cylinders}]}
 	}
 	"""
 

@@ -27,16 +27,10 @@
 						<input type="text" name="query" placeholder="輸入車名或品牌" />
 					</div>
 					<div class="quick-search__row">
-						<select name="type" id="home-search-type" class="form-select form-select--compact">
-							<option value="">全部類型</option>
-							<option value="car">汽車</option>
-							<option value="bike">機車</option>
-						</select>
 						<select
 							name="brand"
 							class="form-select form-select--compact"
 							data-brand-select
-							data-type-input="#home-search-type"
 						>
 							<option value="">熱門品牌</option>
 						</select>
@@ -79,10 +73,10 @@
 			</div>
 		</div>
 		<div class="chip-list">
-			<a href="/search?type=car" class="chip">熱門汽車</a>
-			<a href="/search?type=bike" class="chip">熱門機車</a>
-			<a href="/search?type=bike&displacement_max=200" class="chip">通勤輕檔車</a>
-			<a href="/search?type=car&hp_min=250" class="chip">高性能選擇</a>
+			<a href="/search" class="chip">熱門機車</a>
+			<a href="/search?displacement_max=200" class="chip">通勤輕檔車</a>
+			<a href="/search?displacement_min=600&displacement_max=750" class="chip">中量級熱門</a>
+			<a href="/search?hp_min=80" class="chip">性能取向</a>
 			<a href="/search?cylinders=2" class="chip">雙缸樂趣</a>
 		</div>
 	</section>
@@ -144,11 +138,6 @@
 								{% endif %}
 								{% if vehicle.horsepower_ps %}
 									<li class="pill pill--compact">{{ vehicle.horsepower_ps }} PS</li>
-								{% endif %}
-								{% if vehicle.type %}
-									<li class="pill pill--compact">
-										{% if vehicle.type == 'car' %}汽車{% elif vehicle.type == 'bike' %}機車{% else %}{{ vehicle.type }}{% endif %}
-									</li>
 								{% endif %}
 							</ul>
 						</div>

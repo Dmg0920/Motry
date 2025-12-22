@@ -45,9 +45,8 @@ class PublicViewTests(TestCase):
     def setUp(self):
         self.client = Client()
         self.vehicle = Vehicle.objects.create(
-            
-            brand="Toyota",
-            model="GR86",
+            brand="Yamaha",
+            model="R3",
             displacement_cc=2387,
             horsepower_ps=235,
         )
@@ -61,17 +60,16 @@ class PublicViewTests(TestCase):
 
     def test_search_with_query(self):
         """測試搜尋功能"""
-        response = self.client.get(reverse("search"), {"query": "Toyota"})
+        response = self.client.get(reverse("search"), {"query": "Yamaha"})
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Toyota")
+        self.assertContains(response, "Yamaha")
 
     def test_search_with_filters(self):
         """測試搜尋篩選"""
         response = self.client.get(
             reverse("search"),
             {
-                "type": "car",
-                "brand": "Toyota",
+                "brand": "Yamaha",
                 "displacement_min": "2000",
                 "hp_min": "200",
             },
@@ -85,8 +83,8 @@ class PublicViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "motry/vehicle_detail.html")
-        self.assertContains(response, "Toyota")
-        self.assertContains(response, "GR86")
+        self.assertContains(response, "Yamaha")
+        self.assertContains(response, "R3")
 
     def test_vehicle_detail_not_found(self):
         """測試車輛詳情頁 404"""

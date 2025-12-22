@@ -80,7 +80,7 @@
 			<span class="badge badge--ghost">Vehicle Overview</span>
 			<h1 class="hero-title">{{ vehicle.brand }} {{ vehicle.model }}</h1>
 			<p class="hero-subtitle">
-				{% if vehicle.type == 'car' %}汽車{% elif vehicle.type == 'bike' %}機車{% else %}{{ vehicle.type }}{% endif %}
+				機車
 				{% if vehicle.years_from or vehicle.years_to %}
 					｜年份 {{ vehicle.years_from|default:"?" }}{% if vehicle.years_to %} - {{ vehicle.years_to }}{% endif %}
 				{% endif %}

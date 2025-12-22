@@ -145,9 +145,9 @@ class VehicleIntroForm(forms.ModelForm):
 		model = Vehicle
 		fields = ["intro_md"]
 
-		def __init__(self, *args, **kwargs):
-			super().__init__(*args, **kwargs)
-			self.fields["intro_md"].widget.attrs["data-intro-input"] = "true"
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.fields["intro_md"].widget.attrs["data-intro-input"] = "true"
 
 
 class VehiclePhotoForm(forms.ModelForm):

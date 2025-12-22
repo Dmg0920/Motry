@@ -13,8 +13,6 @@ def _is_bad_image(url: str) -> bool:
 	lower = url.lower()
 	if "default" in lower:
 		return True
-	if "loremflickr.com" in lower or "picsum.photos" in lower:
-		return True
 	return False
 
 
