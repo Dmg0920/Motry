@@ -752,10 +752,14 @@ def comment_create_ajax(request: HttpRequest) -> JsonResponse:
 	
 	# 返回渲染後的留言 HTML
 	from django.template.loader import render_to_string
-	comment_html = render_to_string('motry/partials/comment_item.html', {
-		'comment': comment,
-		'user': request.user,
-	})
+	comment_html = render_to_string(
+		"motry/partials/comment_item.html",
+		{
+			"comment": comment,
+			"user": request.user,
+		},
+		request=request,
+	)
 	
 	return JsonResponse({
 		"success": True,
