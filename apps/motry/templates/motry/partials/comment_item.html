@@ -31,7 +31,7 @@
 				<button type="button" class="comment__reply-toggle" data-reply-toggle data-target="reply-form-{{ comment.id }}">回覆</button>
 			{% endif %}
 			{% if user.is_authenticated %}
-				{% if comment.user_id == user.id or user.is_staff %}
+				{% if comment.user_id == user.id %}
 					<form action="{% url 'comment_delete' comment.id %}" method="post" class="comment__delete-form">
 						{% csrf_token %}
 						<input type="hidden" name="next" value="{{ request.get_full_path }}" />

@@ -346,7 +346,7 @@ def post_delete(request: HttpRequest, post_id: int) -> HttpResponse:
 	redirect_candidate = request.POST.get("next") or request.META.get("HTTP_REFERER")
 	redirect_url = _safe_redirect(request, redirect_candidate, fallback)
 
-	if not (post.user_id == request.user.id or request.user.is_staff):
+	if post.user_id != request.user.id:
 		messages.error(request, "沒有權限刪除這篇貼文。")
 		return HttpResponseRedirect(redirect_url)
 
@@ -365,7 +365,7 @@ def comment_delete(request: HttpRequest, comment_id: int) -> HttpResponse:
 	redirect_candidate = request.POST.get("next") or request.META.get("HTTP_REFERER")
 	redirect_url = _safe_redirect(request, redirect_candidate, fallback)
 
-	if not (comment.user_id == request.user.id or request.user.is_staff):
+	if comment.user_id != request.user.id:
 		messages.error(request, "沒有權限刪除這則留言。")
 		return HttpResponseRedirect(redirect_url)
 

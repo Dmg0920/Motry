@@ -357,12 +357,12 @@
 											<span class="post-like-button__label">按愛心</span>
 										</button>
 									</form>
-									{% if post.user_id == user.id or user.is_staff %}
-										<form action="{% url 'post_delete' post.id %}" method="post" class="post-delete-form">
-											{% csrf_token %}
-											<input type="hidden" name="next" value="{{ request.get_full_path }}" />
-											<button type="submit" class="post-delete-link">刪除貼文</button>
-										</form>
+								{% if post.user_id == user.id %}
+									<form action="{% url 'post_delete' post.id %}" method="post" class="post-delete-form">
+										{% csrf_token %}
+										<input type="hidden" name="next" value="{{ request.get_full_path }}" />
+										<button type="submit" class="post-delete-link">刪除貼文</button>
+									</form>
 									{% endif %}
 								</div>
 							{% endif %}
