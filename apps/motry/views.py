@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
@@ -108,6 +109,7 @@ def _build_vehicle_detail_context(
 	}
 
 
+@ensure_csrf_cookie
 def search(request: HttpRequest) -> HttpResponse:
 	query = request.GET.get("query", "").strip()
 	brand = request.GET.get("brand", "").strip()

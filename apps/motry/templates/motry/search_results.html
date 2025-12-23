@@ -74,7 +74,7 @@
 				<div class="results-summary">
 					<h2>搜尋結果</h2>
 					{% if vehicles %}
-						<span>共 {{ page_obj.paginator.count|default:vehicles|length }} 筆符合條件</span>
+						<span>共 {% if page_obj %}{{ page_obj.paginator.count }}{% else %}{{ vehicles|length }}{% endif %} 筆符合條件</span>
 					{% else %}
 						<span>尚未找到符合項目</span>
 					{% endif %}
